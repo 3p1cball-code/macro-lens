@@ -25,6 +25,7 @@ var _last_code: String = ""
 var _last_code_ms: int = 0
 var _shot_path: String = ""
 var _shot_screen: String = "live"
+var _shot_size: Vector2i = Vector2i.ZERO
 var _demo: bool = false
 var _no_demo: bool = false
 var _single: bool = false
@@ -49,7 +50,6 @@ func _ready() -> void:
 	if _demo:
 		_demo_data()
 	if _shot_path != "":
-		DisplayServer.window_set_size(Vector2i(480, 854))
 		goto(_shot_screen)
 		await _capture_shot()
 	else:
@@ -88,6 +88,10 @@ func _parse_args() -> void:
 			_shot_path = a.substr(7)
 		elif a.begins_with("--screen="):
 			_shot_screen = a.substr(9)
+		elif a.begins_with("--shot-size="):
+			var wh := a.substr(12).split("x")
+			if wh.size() == 2:
+				_shot_size = Vector2i(int(wh[0]), int(wh[1]))
 		elif a == "--demo":
 			_demo = true
 		elif a == "--single":
@@ -99,6 +103,14 @@ func _parse_args() -> void:
 		elif a == "--empty":
 			_demo = false
 			_no_demo = true
+		elif a.begins_with("--lang="):
+			var l := a.substr(7)
+			if l == "en" or l == "de":
+				store.settings["lang"] = l
+				I18n.lang = l
+		elif a == "--light":
+			store.settings["theme"] = "light"
+			UI.set_dark(false)
 	_demo = (_demo or _shot_path != "") and not _no_demo
 
 func _capture_shot() -> void:
@@ -106,9 +118,26 @@ func _capture_shot() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	await get_tree().create_timer(0.6).timeout
-	RenderingServer.force_draw(false)
-	await get_tree().process_frame
-	var img := get_viewport().get_texture().get_image()
+	var img: Image
+	if _shot_size != Vector2i.ZERO:
+		# Exakte Groesse unabhaengig von der Fenstergroesse (fuer Store-Assets).
+		var sv := SubViewport.new()
+		sv.size = _shot_size
+		sv.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		sv.transparent_bg = false
+		add_child(sv)
+		if _current_screen != null:
+			remove_child(_current_screen)
+			sv.add_child(_current_screen)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		RenderingServer.force_draw(true)
+		await get_tree().process_frame
+		img = sv.get_texture().get_image()
+	else:
+		RenderingServer.force_draw(false)
+		await get_tree().process_frame
+		img = get_viewport().get_texture().get_image()
 	img.save_png(_shot_path)
 	get_tree().quit()
 
@@ -321,7 +350,7 @@ func prompt_barcode() -> void:
 	card.custom_minimum_size = Vector2(840, 0)
 	var v := UI.vbox(20)
 	v.add_child(UI.micro(I18n.t("barcode")))
-	var field := UI.field("z. B. 4001234567890")
+	var field := UI.field("4001234567890")
 	field.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_NUMBER
 	v.add_child(field)
 	var row := UI.hbox(14)
@@ -388,7 +417,7 @@ func _demo_food() -> Food:
 	var f := Food.new()
 	f.barcode = "demo"
 	f.name = "Knusper-Müsli Nuss"
-	f.brand = "Demo-Marke"
+	f.brand = "Demo"
 	f.quantity = "500 g"
 	f.serving_g = 45.0
 	f.source = "openfoodfacts"

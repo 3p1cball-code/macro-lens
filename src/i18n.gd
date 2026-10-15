@@ -65,6 +65,8 @@ const STRINGS := {
 	"per_100g": ["pro 100 g", "per 100 g"],
 	"per_100kcal": ["pro 100 kcal", "per 100 kcal"],
 	"kcal_100g": ["kcal/100 g", "kcal/100 g"],
+	"of_100": ["von 100", "of 100"],
+	"unit_g_100kcal": ["g/100 kcal", "g/100 kcal"],
 	"estimate": ["Schätzung", "Estimate"],
 	"estimate_nofiber": ["Schätzung (ohne Ballaststoffe)", "Estimate (without fiber)"],
 	"fiber": ["Ballaststoffe", "Fiber"],

@@ -23,3 +23,6 @@
 *.keystore
 *.jks
 release.pw
+
+# Diagnose-/Handy-Screenshots nicht ins Projekt
+Screenshot_*

@@ -309,7 +309,7 @@ func _build_rows(cols: Array) -> void:
 	for i in range(n):
 		var ev = evals[i]
 		var col: Color = UI.c("faint") if not ev.density_ok else UI.scale_color(Metrics.density_t(ev.density))
-		krows.append(_bar_cell(Metrics.format_num(ev.density, 0) if ev.density_ok else "–", "kcal/100 g", ev.density if ev.density_ok else -1.0, 500.0, col, num_size, show_best and i == best_kcal))
+		krows.append(_bar_cell(Metrics.format_num(ev.density, 0) if ev.density_ok else "–", I18n.t("kcal_100g"), ev.density if ev.density_ok else -1.0, 500.0, col, num_size, show_best and i == best_kcal))
 	_matrix.add_child(_row("lbl_density", krows))
 	_matrix.add_child(UI.hline("line"))
 
@@ -318,7 +318,7 @@ func _build_rows(cols: Array) -> void:
 	for i in range(n):
 		var ev = evals[i]
 		var col: Color = UI.c("faint") if not ev.protein_density_ok else UI.scale_color(Metrics.protein_t(ev.protein_density))
-		prows.append(_bar_cell(Metrics.format_num(ev.protein_density, 1) if ev.protein_density_ok else "–", "g/100 kcal", ev.protein_density if ev.protein_density_ok else -1.0, 25.0, col, num_size, show_best and i == best_pd))
+		prows.append(_bar_cell(Metrics.format_num(ev.protein_density, 1) if ev.protein_density_ok else "–", I18n.t("unit_g_100kcal"), ev.protein_density if ev.protein_density_ok else -1.0, 25.0, col, num_size, show_best and i == best_pd))
 	_matrix.add_child(_row("lbl_protein", prows))
 	_matrix.add_child(UI.hline("line"))
 
@@ -328,7 +328,7 @@ func _build_rows(cols: Array) -> void:
 		var ev = evals[i]
 		var sc: float = float(ev.fullness.get("score", -1)) if ev.fullness_ok else -1.0
 		var col: Color = UI.c("faint") if sc < 0.0 else UI.scale_color(Metrics.satiety_t(sc))
-		srows.append(_bar_cell(str(int(sc)) if sc >= 0.0 else "–", "von 100", sc, 100.0, col, num_size, show_best and i == best_sat))
+		srows.append(_bar_cell(str(int(sc)) if sc >= 0.0 else "–", I18n.t("of_100"), sc, 100.0, col, num_size, show_best and i == best_sat))
 	_matrix.add_child(_row("lbl_satiety", srows))
 
 func _donut_cell(ev: Dictionary, h: int, show_legend: bool) -> Control:
