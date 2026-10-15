@@ -26,7 +26,7 @@ Stand 15.10.2026. Schritt für Schritt. ✅ = schon erledigt (von mir vorbereite
 - [x] **Store-Grafiken**: `store/icon-512.png`, `store/feature-graphic-1024x500.png`
 - [x] **Screenshots** (1080×1920, 9:16): `store/screenshots/de/…` und `…/en/…` (je 4)
 - [x] **Texte** DE/EN: `store/listing-de.md`, `store/listing-en.md`
-- [x] **Datenschutzerklärung** als Seite: `docs/privacy.html` (→ Phase 3, GitHub Pages aktivieren)
+- [x] **Datenschutzerklärung** live: https://3p1cball-code.github.io/macro-lens/privacy.html
 
 Neuen Build erzeugen:
 ```bash
@@ -48,18 +48,16 @@ tools/store_shots.sh               # Store-Screenshots neu rendern
 
 ---
 
-## Phase 3 — GitHub Pages für Datenschutz-URL aktivieren
+## Phase 3 — Datenschutz-URL ✅ aktiviert
 
-Die Datenschutzerklärung braucht eine **öffentliche URL**. Am einfachsten über GitHub Pages aus `docs/`:
+GitHub Pages ist eingerichtet und live:
 
-```bash
-# einmalig, aus dem Repo heraus
-gh api -X POST repos/3p1cball-code/macro-lens/pages \
-  -f "source[branch]=main" -f "source[path]=/docs"
-```
-→ erreichbar unter
-`https://3p1cball-code.github.io/macro-lens/` (Landingpage) und
-`https://3p1cball-code.github.io/macro-lens/privacy.html` (**die Datenschutz-URL**).
+- Landingpage: **https://3p1cball-code.github.io/macro-lens/**
+- Datenschutzerklärung (diese URL im Formular eintragen):
+  **https://3p1cball-code.github.io/macro-lens/privacy.html**
+
+(Wiederherstellen/neu aktivieren, falls nötig:
+`gh api -X POST repos/3p1cball-code/macro-lens/pages -f "source[branch]=main" -f "source[path]=/docs"`)
 
 ---
 

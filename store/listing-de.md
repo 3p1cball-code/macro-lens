@@ -57,4 +57,4 @@ Hinweis: Die Sättigung ist eine Schätzung. Macro Lens ist ein Alltagshelfer un
 - **Tags:** Ernährung, Gesundheit, Einkaufen, Fitness
 - **Kontakt-E-Mail:** info@augenrahmen.de
 - **Website (optional):** https://augenrahmen.de
-- **Datenschutzerklärung:** siehe `docs/privacy.html` (GitHub Pages)
+- **Datenschutzerklärung:** https://3p1cball-code.github.io/macro-lens/privacy.html
