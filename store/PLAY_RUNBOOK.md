@@ -2,6 +2,26 @@
 
 Stand 15.10.2026. Schritt für Schritt. ✅ = schon erledigt (von mir vorbereitet).
 
+> **Gewählter Weg: Einzelpersonen-Konto.** Das heißt konkret:
+> 25 USD → Identitätsprüfung → App + Formulare → **geschlossener Test mit ≥ 12 Testern über
+> 14 Tage** → Produktionsantrag → Review.
+>
+> | Wann | Was | Dauer |
+> |---|---|---|
+> | Tag 0 | Konto + 25 USD + Identitätsprüfung | 1–3 Tage (blockiert alles) |
+> | Tag 1–3 | App anlegen, Store-Eintrag, Formulare, Internal-Test | ~1 Tag |
+> | Tag 4 | Geschlossenen Test starten (12 Tester finden) | — |
+> | Tag 4–18 | Test läuft (App installiert lassen!) | 14 Tage |
+> | Tag 18 | Produktion beantragen | — |
+> | Tag 19–21 | Review + Rollout | 1–3 Tage |
+>
+> **≈ 3 Wochen ab heute.** Der lange Pol ist die Verifizierung (früh starten) und die 14 Testtage.
+>
+> Hilfsdateien:
+> - `store/tester-invite.md` — Weiterleit-Text für die 12 Tester + Nachverfolgungstabelle
+> - `store/production-request.md` — fertige Antworten für Data-Safety, Content-Rating und den Produktionsantrag
+> - `store/release-notes-template.md` — Release-Notes-Vorlagen
+
 ---
 
 ## Phase 0 — Entscheidungen vorab
@@ -112,14 +132,15 @@ Englisch zusätzlich anlegen (Übersetzung → Englisch) mit `store/listing-en.m
 
 ---
 
-## Phase 8 — Geschlossener Test (nur Einzelpersonen-Konten)
+## Phase 8 — Geschlossener Test (dein Pflichtteil)
 
 Neue **persönliche** Konten müssen **vor** dem Produktionsantrag:
 - **≥ 12 Tester** gewinnen, die sich *freiwillig* eintragen (Opt-in über den Closed-Testing-Link),
 - **14 Tage am Stück** testen lassen (die Tester müssen die App im Testtrack installiert haben).
 
-Praktisch: `Testen → Geschlossener Test → Testerliste` (E-Mails anlegen) → Link teilen.
-Nach Ablauf: **„Produktion beantragen"** — du wirst gefragt, warum du die Freigabe willst (kurz: „Persönlicher Entwickler, 12 Tester über 14 Tage aktiv, App stabil").
+Praktisch: `Testen → Geschlossener Test → Testnutzer` (E-Mails anlegen) → Link teilen.
+**Details, Einladungstext und Nachverfolgung: `store/tester-invite.md`.**
+Nach Ablauf: **„Produktion beantragen"** — Formulierung siehe `store/production-request.md`.
 
 > Organisation-Konten überspringen das. Falls dir das zu lang ist: Konto auf *Organisation* upgraden (D-U-N-S nötig).
 
@@ -137,7 +158,8 @@ Nach Ablauf: **„Produktion beantragen"** — du wirst gefragt, warum du die Fr
 
 - **Vitals** (Abstürze/ANR) im Blick behalten.
 - Bewertungen beantworten.
-- Updates: `version/code` erhöhen → neues AAB → Production-Release.
+- Updates: `tools/bump_version.sh 0.3.0` → `tools/build_aab.sh` → Production-Release
+  (Release-Notes-Vorlage: `store/release-notes-template.md`).
 
 ---
 
