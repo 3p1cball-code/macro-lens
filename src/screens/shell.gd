@@ -40,7 +40,7 @@ static func header(app: App, title: String, with_back: bool = true, right: Contr
 		var b := UI.button("‹", "ghost", 60)
 		b.custom_minimum_size = Vector2(100, 92)
 		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		b.pressed.connect(func(): app.goto("home"))
+		b.pressed.connect(func(): app.goto("live"))
 		row.add_child(b)
 		var t := UI.label(title.to_upper(), 38, "text", 1)
 		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL

@@ -7,6 +7,12 @@ static func build(app: App) -> Control:
 
 	var field := UI.field(I18n.t("unpackaged_hint"))
 	content.add_child(field)
+
+	var manual := UI.button(I18n.t("barcode") + "  …", "ghost", UI.FS_MICRO)
+	manual.custom_minimum_size = Vector2(0, 74)
+	manual.pressed.connect(func(): app.prompt_barcode())
+	content.add_child(manual)
+
 	var list := UI.vbox(10)
 	content.add_child(list)
 
@@ -25,12 +31,12 @@ static func build(app: App) -> Control:
 				list.add_child(UI.micro(f.group))
 			var r := UI.hbox(10)
 			var sub: String = f.group if filtering else ""
-			r.add_child(UI.list_row(f.display_name(I18n.lang), sub, (Metrics.format_num(f.kcal, 0) + " kcal") if f.has_kcal() else "", func(): app.open_food(f), UI.FS_SMALL))
+			var kcal: String = (Metrics.format_num(f.kcal, 0) + " kcal") if f.has_kcal() else ""
+			var on_tap := func(): app.add_pinned(f); app.goto("live")
+			r.add_child(UI.list_row(f.display_name(I18n.lang), sub, kcal, on_tap, UI.FS_SMALL))
 			var add := UI.button("+", "ghost", 40)
 			add.custom_minimum_size = Vector2(88, 0)
-			add.pressed.connect(func():
-				app.tray_add(f)
-				app.goto("home"))
+			add.pressed.connect(on_tap)
 			r.add_child(add)
 			list.add_child(r)
 

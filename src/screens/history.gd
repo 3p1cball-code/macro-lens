@@ -29,23 +29,18 @@ static func build(app: App) -> Control:
 			if q != "" and not name.to_lower().contains(q.to_lower()):
 				continue
 			var bc := str(e.get("barcode", ""))
-			var food := app.resolve_barcode(bc)
-			if food == null and e.get("source", "") == "generic":
+			var food: Food = app.resolve_barcode(bc)
+			if food == null and str(e.get("source", "")) == "generic":
 				continue
 			var row := UI.hbox(12)
 			var kcal := ""
 			if food != null and food.has_kcal():
 				kcal = Metrics.format_num(food.kcal, 0) + " kcal"
-			var lr := UI.list_row(name, _subtitle(e, food), kcal, func():
-				if food != null:
-					app.open_food(food))
-			row.add_child(lr)
+			var on_show := func(): app.set_current(food); app.goto("live")
+			row.add_child(UI.list_row(name, _subtitle(e, food), kcal, on_show))
 			var add := UI.button("+", "ghost", 40)
 			add.custom_minimum_size = Vector2(96, 0)
-			add.pressed.connect(func():
-				if food != null:
-					app.tray_add(food)
-					app.goto("history"))
+			add.pressed.connect(func(): app.add_pinned(food); app.goto("live"))
 			row.add_child(add)
 			list.add_child(row)
 			shown += 1

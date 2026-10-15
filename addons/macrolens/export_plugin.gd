@@ -26,7 +26,13 @@ class AndroidExportPlugin extends EditorExportPlugin:
 		return PackedStringArray(["macrolens/macrolens-barcode.aar"])
 
 	func _get_android_dependencies(_platform: EditorExportPlatform, _debug: bool) -> PackedStringArray:
-		return PackedStringArray(["com.google.android.gms:play-services-code-scanner:16.1.0"])
+		return PackedStringArray([
+			"androidx.camera:camera-core:1.4.1",
+			"androidx.camera:camera-camera2:1.4.1",
+			"androidx.camera:camera-lifecycle:1.4.1",
+			"androidx.camera:camera-view:1.4.1",
+			"com.google.mlkit:barcode-scanning:17.3.0",
+		])
 
 	func _get_name() -> String:
 		return _plugin_name

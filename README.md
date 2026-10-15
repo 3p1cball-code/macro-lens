@@ -8,16 +8,24 @@ in the aisle with two yoghurts in your hand, and you want to know which one is t
 better pick — in seconds, without reading labels.
 
 <p align="center">
-  <img src="screenshots/home.png" width="24%" alt="Home">
-  <img src="screenshots/result.png" width="24%" alt="Result">
-  <img src="screenshots/compare.png" width="24%" alt="Compare">
-  <img src="screenshots/generics.png" width="24%" alt="Unpackaged list">
+  <img src="screenshots/live.png" width="31%" alt="Continuous scan with a live camera preview and up to four compared products">
+  <img src="screenshots/live_empty.png" width="31%" alt="Waiting for a barcode">
+  <img src="screenshots/generics.png" width="31%" alt="Unpackaged basics">
 </p>
+
+The whole app is **one screen**: a live camera preview on top, the four charts
+below, and a **PIN** button that keeps the current product for side-by-side
+comparison (up to four). No menus, no scrolling.
 
 ## What it is
 
-A **measuring device**, not a diary. Four charts tell you everything the buying
-decision needs — and nothing is summarised into a score:
+A **measuring device**, not a diary. It scans continuously: hold a barcode into
+the top third of the screen and the four charts below update immediately. Tap
+**PIN** to keep the product; the next scan appears beside it — up to four
+products compared at once, each removable again.
+
+Four charts tell you everything the buying decision needs — and nothing is
+summarised into a score:
 
 | Chart | Question it answers |
 |---|---|
@@ -40,22 +48,23 @@ barcode sent to Open Food Facts.
 
 ## Features
 
-- **Barcode scan** via the on-device Google Code Scanner (ML Kit) — EAN-8/13,
-  UPC-A/E, Code 128, Code 39, ITF.
+- **Continuous scan**: a live camera preview (CameraX) with an on-device ML Kit
+  barcode decoder (bundled, no Play Services needed) — EAN-8/13, UPC-A/E,
+  Code 128, Code 39, ITF. Hold a barcode in front of it and the charts update.
+- **PIN & compare**: keep the current product, scan the next one, compare up to
+  four side by side; the best value per chart is marked, each can be removed.
+- **Unpackaged basics** (~65 staples: banana, oats, chicken, skyr, …) that can be
+  added to the comparison and works fully offline.
 - **Name search** through Open Food Facts.
-- **Unpackaged basics list** (~65 staples: banana, oats, chicken, skyr, …) that
-  works fully offline.
 - **Offline cache**: every scanned product is remembered.
-- **4-way comparison** with best-value marking per chart.
-- **History** with search.
-- **Manual barcode entry** as a fallback.
+- **History** with search, **manual barcode entry** as a fallback.
 - **German / English**, light / dark.
 
 ## Data
 
 Nutrition data comes from [Open Food Facts](https://world.openfoodfacts.org) (ODbL).
 The unpackaged basics list is based on USDA FoodData Central (public domain).
-Barcode decoding uses the on-device Google Code Scanner.
+Barcode decoding runs on-device via the bundled ML Kit scanner (CameraX preview).
 
 > Data: Open Food Facts (ODbL) · Basics: USDA FoodData Central
 
@@ -114,7 +123,7 @@ src/
   app.gd             state, navigation, tray, screenshot harness
   ui/                design system (palette, cards, buttons, type)
   widgets/           macro donut, calorie-density scale, meter bar
-  screens/           home, result, compare, history, search, generics, …
+  screens/           live (continuous scan), generics, search, history, settings, …
 data/generics.json   unpackaged basics (per 100 g)
 plugins/macrolens-barcode/   Kotlin source of the Godot Android plugin
 addons/macrolens/    packaged plugin (AAR + export plugin)

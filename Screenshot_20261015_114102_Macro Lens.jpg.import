@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dlwvyufhcfsb7"
-path="res://.godot/imported/home.png-9281ad432e9838e10f3cd297c8d00e62.ctex"
+uid="uid://bh6afrlq8wb8u"
+path="res://.godot/imported/Screenshot_20261015_114102_Macro Lens.jpg-e9d38972c805e09856b4378e1cc85a01.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://screenshots/home.png"
-dest_files=["res://.godot/imported/home.png-9281ad432e9838e10f3cd297c8d00e62.ctex"]
+source_file="res://Screenshot_20261015_114102_Macro Lens.jpg"
+dest_files=["res://.godot/imported/Screenshot_20261015_114102_Macro Lens.jpg-e9d38972c805e09856b4378e1cc85a01.ctex"]
 
 [params]
 

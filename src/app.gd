@@ -1,25 +1,29 @@
 extends Control
 class_name App
 
-## Wurzel: Zustand, Navigation, Ablage, Netz-Flows. Screens werden als
-## Controls gebaut und ausgetauscht (code-getriebene UI, volle Kontrolle).
+## Wurzel: Zustand, Navigation, Ablage (gepinnte Produkte), Scan-Flow.
+## Standard-Screen ist der Dauerscan ("live"). Kein Hauptmenue.
 
 const MAX_TRAY := 4
+const CAM_FRACTION := 0.30
+const SCAN_DEBOUNCE_MS := 2500
 
 var store: Store
 var off: OffClient
 var generics: Generics
 
-var tray: Array = []              # Array[Food]
-var last_food: Food = null
-var last_error: String = ""       # ""|"net"|"rate"|"notfound"
-var last_barcode: String = ""
+var tray: Array = []              # gepinnte Vergleichsprodukte (max 4)
+var current: Food = null          # zuletzt gescannt/gewaehlt (noch nicht gepinnt)
+var scan_status: String = ""      # Meldung im Live-Screen ("", "notfound", "rate", "net")
 
-var _current: Control = null
+var _current_screen: Control = null
 var _current_name: String = ""
+var _last_code: String = ""
+var _last_code_ms: int = 0
 var _shot_path: String = ""
-var _shot_screen: String = "home"
+var _shot_screen: String = "live"
 var _demo: bool = false
+var _no_demo: bool = false
 
 func _ready() -> void:
 	for c in get_children():
@@ -34,15 +38,43 @@ func _ready() -> void:
 	off.store = store
 	add_child(off)
 	_load_tray()
+	_connect_plugin()
 	_parse_args()
 	if _demo:
-		_demo_tray()
+		_demo_data()
 	if _shot_path != "":
 		DisplayServer.window_set_size(Vector2i(480, 854))
 		goto(_shot_screen)
 		await _capture_shot()
 	else:
-		goto("home")
+		goto("live")
+
+# --- Plugin ----------------------------------------------------------------
+
+func _connect_plugin() -> void:
+	if not Engine.has_singleton("MacroLens"):
+		return
+	var ml: Object = Engine.get_singleton("MacroLens")
+	if ml.has_signal("barcode_scanned") and not ml.is_connected("barcode_scanned", on_scanned):
+		ml.connect("barcode_scanned", on_scanned)
+	if ml.has_signal("scan_failed") and not ml.is_connected("scan_failed", _on_scan_failed):
+		ml.connect("scan_failed", _on_scan_failed)
+
+func has_scanner() -> bool:
+	return Engine.has_singleton("MacroLens")
+
+func start_preview() -> void:
+	if has_scanner():
+		Engine.get_singleton("MacroLens").call("startPreview", CAM_FRACTION)
+
+func stop_preview() -> void:
+	if has_scanner():
+		Engine.get_singleton("MacroLens").call("stopPreview")
+
+func _on_scan_failed(_msg: String) -> void:
+	pass
+
+# --- Navigation ------------------------------------------------------------
 
 func _parse_args() -> void:
 	for a in OS.get_cmdline_user_args():
@@ -52,9 +84,11 @@ func _parse_args() -> void:
 			_shot_screen = a.substr(9)
 		elif a == "--demo":
 			_demo = true
-	_demo = _demo or _shot_path != ""
+		elif a == "--empty":
+			_demo = false
+			_no_demo = true
+	_demo = (_demo or _shot_path != "") and not _no_demo
 
-## Screenshot-Harness fuer die Entwicklung (--shot=<pfad> --screen=<name> --demo).
 func _capture_shot() -> void:
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 	await get_tree().process_frame
@@ -66,57 +100,116 @@ func _capture_shot() -> void:
 	img.save_png(_shot_path)
 	get_tree().quit()
 
-# --- Navigation -------------------------------------------------------------
-
 func goto(name: String) -> void:
-	if _current != null:
-		remove_child(_current)
-		_current.queue_free()
-		_current = null
+	if name == "home":
+		name = "live"
+	if _current_screen != null:
+		remove_child(_current_screen)
+		_current_screen.queue_free()
+		_current_screen = null
 	_current_name = name
 	var node: Control = null
 	match name:
-		"home": node = HomeScreen.build(self)
-		"result": node = ResultScreen.build(self)
-		"compare": node = CompareScreen.build(self)
-		"history": node = HistoryScreen.build(self)
-		"search": node = SearchScreen.build(self)
+		"live":
+			var ls := LiveScreen.new()
+			ls.app = self
+			ls.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			node = ls
 		"generics": node = GenericsScreen.build(self)
+		"search": node = SearchScreen.build(self)
+		"history": node = HistoryScreen.build(self)
 		"about": node = AboutScreen.build(self)
 		"settings": node = SettingsScreen.build(self)
-		_: node = HomeScreen.build(self)
-	_current = node
+		_:
+			var fallback := LiveScreen.new()
+			fallback.app = self
+			node = fallback
+	_current_screen = node
 	add_child(node)
+	if name == "live":
+		start_preview()
+	else:
+		stop_preview()
 
-func is_home() -> bool:
-	return _current_name == "home"
+func is_live() -> bool:
+	return _current_name == "live"
+
+func refresh_live() -> void:
+	if _current_screen != null and _current_screen.has_method("refresh"):
+		_current_screen.call("refresh")
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
-		if not is_home():
-			goto("home")
+		if not is_live():
+			goto("live")
 
-# --- Ablage -----------------------------------------------------------------
+# --- Scan-Flow -------------------------------------------------------------
 
-func tray_add(food: Food) -> bool:
+func on_scanned(code: String) -> void:
+	if code.strip_edges() == "":
+		return
+	var now := Time.get_ticks_msec()
+	if code == _last_code and now - _last_code_ms < SCAN_DEBOUNCE_MS:
+		return
+	_last_code = code
+	_last_code_ms = now
+	# Bereits gepinnt oder aktuell -> ignorieren
+	if current != null and current.barcode == code:
+		return
+	for f in tray:
+		if f.barcode == code:
+			return
+	var cached := store.get_cached(code)
+	if cached != null:
+		_show_current(cached)
+		return
+	scan_status = "loading"
+	refresh_live()
+	var res: Dictionary = await off.fetch_product(code)
+	if res.get("food", null) != null:
+		_show_current(res.food)
+	else:
+		scan_status = str(res.get("error", "net"))
+		refresh_live()
+
+func _show_current(food: Food) -> void:
+	current = food
+	scan_status = ""
+	store.add_history(food)
+	store.save_history()
+	refresh_live()
+
+func set_current(food: Food) -> void:
 	if food == null:
-		return false
-	if tray_has(food):
-		return true
-	if tray.size() >= MAX_TRAY:
-		return false
-	tray.append(food)
-	_save_tray()
-	return true
+		return
+	current = food
+	scan_status = ""
+	refresh_live()
 
-func tray_remove(index: int) -> void:
+func pin_current() -> void:
+	if current == null or tray.size() >= MAX_TRAY:
+		return
+	if not tray_has(current):
+		tray.append(current)
+		_save_tray()
+	current = null
+	scan_status = ""
+	refresh_live()
+
+func unpin(index: int) -> void:
 	if index >= 0 and index < tray.size():
 		tray.remove_at(index)
 		_save_tray()
+		refresh_live()
 
-func tray_clear() -> void:
-	tray.clear()
+func add_pinned(food: Food) -> void:
+	if food == null or tray.size() >= MAX_TRAY or tray_has(food):
+		return
+	tray.append(food)
 	_save_tray()
+	store.add_history(food)
+	store.save_history()
+	refresh_live()
 
 func tray_has(food: Food) -> bool:
 	if food == null:
@@ -127,6 +220,11 @@ func tray_has(food: Food) -> bool:
 		if f.barcode == "" and f.name == food.name:
 			return true
 	return false
+
+func clear_tray() -> void:
+	tray.clear()
+	_save_tray()
+	refresh_live()
 
 func _save_tray() -> void:
 	var arr: Array = []
@@ -142,44 +240,34 @@ func _load_tray() -> void:
 			if d is Dictionary:
 				tray.append(Food.from_dict(d))
 
-# --- Flows ------------------------------------------------------------------
+# --- Teilen ----------------------------------------------------------------
 
-func open_barcode(barcode: String) -> void:
-	last_barcode = barcode
-	last_food = null
-	last_error = ""
-	goto("result")  # zeigt Ladezustand (last_food == null, kein Fehler)
-	var res: Dictionary = await off.fetch_product(barcode)
-	if res.get("food", null) != null:
-		var f: Food = res.food
-		last_food = f
-		last_error = ""
-		store.add_history(f)
-		store.save_history()
+func share_text(text: String) -> void:
+	if has_scanner():
+		Engine.get_singleton("MacroLens").call("shareText", text)
 	else:
-		last_error = str(res.get("error", "net"))
-	goto("result")
+		DisplayServer.clipboard_set(text)
 
-## Loest eine gespeicherte Kennung (Verlauf) wieder zu einem Food auf.
-func resolve_barcode(bc: String) -> Food:
-	if bc == "":
-		return null
-	if bc.begins_with("generic:"):
-		for g in generics.all():
-			if g.barcode == bc:
-				return g
-		return null
-	return store.get_cached(bc)
+func share_comparison() -> void:
+	var cols: Array = []
+	for f in tray:
+		cols.append(f)
+	var lines: Array = ["Macro Lens"]
+	for f in cols:
+		var ev := Metrics.evaluate(f)
+		var parts: Array = [f.display_name(I18n.lang)]
+		if ev.density_ok:
+			parts.append(Metrics.format_num(ev.density, 0) + " kcal/100 g")
+		if ev.protein_density_ok:
+			parts.append(Metrics.format_num(ev.protein_density, 1) + " g " + I18n.t("protein"))
+		if ev.fullness_ok:
+			parts.append(I18n.t("chart_satiety") + " " + str(ev.fullness.get("score", 0)) + "/100")
+		lines.append("• " + " · ".join(parts))
+	lines.append(I18n.t("attribution"))
+	share_text("\n".join(lines))
 
-func open_food(food: Food) -> void:
-	last_food = food
-	last_error = ""
-	last_barcode = food.barcode
-	store.add_history(food)
-	store.save_history()
-	goto("result")
+# --- Manuelle Eingabe ------------------------------------------------------
 
-## Manuelle Barcode-Eingabe (Fallback ohne Scanner/Play Services).
 func prompt_barcode() -> void:
 	var overlay := Control.new()
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -204,8 +292,9 @@ func prompt_barcode() -> void:
 	ok.pressed.connect(func():
 		var bc := field.text.strip_edges()
 		overlay.queue_free()
+		goto("live")
 		if bc != "":
-			open_barcode(bc))
+			on_scanned(bc))
 	row.add_child(ok)
 	var cancel := UI.button(I18n.t("close"), "ghost")
 	cancel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -216,32 +305,6 @@ func prompt_barcode() -> void:
 	center.add_child(card)
 	add_child(overlay)
 	field.grab_focus()
-
-func scan() -> void:
-	if not Engine.has_singleton("MacroLens"):
-		prompt_barcode()
-		return
-	var ml: Object = Engine.get_singleton("MacroLens")
-	if not ml.has_signal("barcode_scanned"):
-		return
-	if not ml.is_connected("barcode_scanned", _on_barcode_scanned):
-		ml.connect("barcode_scanned", _on_barcode_scanned)
-	if ml.has_signal("scan_cancelled") and not ml.is_connected("scan_cancelled", _on_scan_cancelled):
-		ml.connect("scan_cancelled", _on_scan_cancelled)
-	ml.call("scanBarcode")
-
-func _on_barcode_scanned(code: String) -> void:
-	open_barcode(code)
-
-func _on_scan_cancelled() -> void:
-	pass
-
-## Teilt Text: auf Android via Share-Sheet, am Desktop in die Zwischenablage.
-func share_text(text: String) -> void:
-	if Engine.has_singleton("MacroLens"):
-		Engine.get_singleton("MacroLens").call("shareText", text)
-	else:
-		DisplayServer.clipboard_set(text)
 
 # --- Theme / Sprache --------------------------------------------------------
 
@@ -259,15 +322,15 @@ func set_lang(l: String) -> void:
 
 # --- Demo (Screenshots) -----------------------------------------------------
 
-func _demo_tray() -> void:
-	var by_name := ["Skyr", "Erdnüsse", "Banane", "Haferflocken"]
+func _demo_data() -> void:
+	tray.clear()
+	var by_name := ["Skyr", "Erdnüsse", "Banane"]
 	for g in generics.all():
 		if by_name.has(g.name):
-			tray_add(g)
-	for f in tray:
-		store.add_history(f)
-	if _shot_screen == "result" and last_food == null:
-		last_food = _demo_food()
+			tray.append(g)
+	if _shot_screen == "live":
+		current = _demo_food()
+		scan_status = ""
 
 func _demo_food() -> Food:
 	var f := Food.new()

@@ -8,16 +8,24 @@ mit zwei Joghurts im Gang und will in Sekunden wissen, welcher die bessere Wahl
 ist — ohne Etikett, ohne Rechnerei.
 
 <p align="center">
-  <img src="screenshots/home.png" width="24%" alt="Start">
-  <img src="screenshots/result.png" width="24%" alt="Ergebnis">
-  <img src="screenshots/compare.png" width="24%" alt="Vergleich">
-  <img src="screenshots/generics.png" width="24%" alt="Unverpackt">
+  <img src="screenshots/live.png" width="31%" alt="Dauerscan mit Live-Kamera und bis zu vier verglichenen Produkten">
+  <img src="screenshots/live_empty.png" width="31%" alt="Warten auf einen Barcode">
+  <img src="screenshots/generics.png" width="31%" alt="Unverpackt">
 </p>
+
+Die ganze App ist **ein Screen**: oben die Live-Kameravorschau, darunter die
+vier Grafiken und ein **PIN**-Button, der das aktuelle Produkt für den direkten
+Vergleich behält (bis zu vier). Keine Menüs, kein Scrollen.
 
 ## Was es ist
 
-Ein **Messgerät**, kein Tagebuch. Vier Grafiken sagen alles, was die
-Kaufentscheidung trägt — und nichts wird zu einer Note zusammengefasst:
+Ein **Messgerät**, kein Tagebuch. Es scannt durchgehend: Barcode ins obere
+Drittel halten, die vier Grafiken darunter aktualisieren sich sofort. **PIN**
+behält das Produkt, der nächste Scan erscheint daneben — bis zu vier Produkte
+im Vergleich, jedes wieder entfernbar.
+
+Vier Grafiken sagen alles, was die Kaufentscheidung trägt — und nichts wird zu
+einer Note zusammengefasst:
 
 | Grafik | Beantwortet die Frage |
 |---|---|
@@ -41,22 +49,23 @@ Barcode an Open Food Facts.
 
 ## Funktionen
 
-- **Barcode-Scan** über den On-Device-Google-Code-Scanner (ML Kit) — EAN-8/13,
-  UPC-A/E, Code 128, Code 39, ITF.
-- **Namenssuche** über Open Food Facts.
+- **Dauerscan**: Live-Kameravorschau (CameraX) mit On-Device-ML-Kit-Barcode-Decoder
+  (gebündelt, ohne Play-Services-Zwang) — EAN-8/13, UPC-A/E, Code 128, Code 39,
+  ITF. Barcode reinhalten, Grafiken aktualisieren.
+- **PIN & Vergleich**: aktuelles Produkt behalten, nächstes scannen, bis zu vier
+  nebeneinander; Bestwert je Grafik markiert, jedes wieder entfernbar.
 - **Unverpackt-Liste** (~65 Grundnahrungsmittel: Banane, Haferflocken, Hähnchen,
-  Skyr …), vollständig offline.
+  Skyr …), direkt in den Vergleich übernehmbar, vollständig offline.
+- **Namenssuche** über Open Food Facts.
 - **Offline-Cache**: jedes gescannte Produkt wird lokal gemerkt.
-- **4er-Vergleich** mit Bestwert-Markierung je Grafik.
-- **Verlauf** mit Suche.
-- **Manuelle Barcode-Eingabe** als Fallback.
+- **Verlauf** mit Suche, **manuelle Barcode-Eingabe** als Fallback.
 - **Deutsch / Englisch**, Hell / Dunkel.
 
 ## Daten
 
 Die Nährwerte stammen aus [Open Food Facts](https://world.openfoodfacts.org) (ODbL).
 Die Unverpackt-Liste basiert auf USDA FoodData Central (public domain).
-Die Barcode-Erkennung läuft on-device über den Google Code Scanner.
+Die Barcode-Erkennung läuft on-device über den gebündelten ML-Kit-Scanner (CameraX-Vorschau).
 
 > Daten: Open Food Facts (ODbL) · Generika: USDA FoodData Central
 
@@ -115,7 +124,7 @@ src/
   app.gd             Zustand, Navigation, Ablage, Screenshot-Harness
   ui/                Design-System (Palette, Karten, Buttons, Typografie)
   widgets/           Makro-Donut, Kaloriendichte-Skala, Balken
-  screens/           Start, Ergebnis, Vergleich, Verlauf, Suche, …
+  screens/           live (Dauerscan), Unverpackt, Suche, Verlauf, …
 data/generics.json   Unverpackt-Liste (pro 100 g)
 plugins/macrolens-barcode/   Kotlin-Quelle des Godot-Android-Plugins
 addons/macrolens/    gepacktes Plugin (AAR + Export-Plugin)

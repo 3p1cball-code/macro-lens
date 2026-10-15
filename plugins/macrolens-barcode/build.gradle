@@ -24,6 +24,13 @@ android {
 dependencies {
     // Godot Android library: nur zum Kompilieren noetig (wird zur Laufzeit von der Engine gestellt).
     compileOnly files('../../android/build/libs/release/godot-lib.template_release.aar')
-    // Google Code Scanner (ML Kit Phase A): fertiger Scanner-Bildschirm, on-device.
-    implementation 'com.google.android.gms:play-services-code-scanner:16.1.0'
+
+    // CameraX: native Vorschau + Frame-Stream fuer den Analyzer.
+    implementation 'androidx.camera:camera-core:1.4.1'
+    implementation 'androidx.camera:camera-camera2:1.4.1'
+    implementation 'androidx.camera:camera-lifecycle:1.4.1'
+    implementation 'androidx.camera:camera-view:1.4.1'
+
+    // Gebuendelter ML-Kit-Barcode-Scanner (on-device, kein Play-Services-Zwang).
+    implementation 'com.google.mlkit:barcode-scanning:17.3.0'
 }

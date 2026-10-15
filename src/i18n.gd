@@ -43,6 +43,10 @@ const STRINGS := {
 	"product": ["Produkt", "Product"],
 
 	# Grafiken
+	"lbl_macros": ["MAKROS", "MACROS"],
+	"lbl_density": ["DICHTE", "DENSITY"],
+	"lbl_protein": ["EIWEISS", "PROTEIN"],
+	"lbl_satiety": ["SÄTTIGUNG", "SATIETY"],
 	"chart_donut": ["WORAUS KOMMEN DIE KALORIEN", "WHERE THE CALORIES COME FROM"],
 	"chart_density": ["KALORIENDICHTE", "CALORIE DENSITY"],
 	"chart_protein": ["EIWEISSDICHTE", "PROTEIN DENSITY"],
@@ -70,6 +74,7 @@ const STRINGS := {
 	"macro_estimated": ["Donut aus Makros berechnet", "Donut computed from macros"],
 	"best": ["BEST", "BEST"],
 	"worst": ["SCHLECHT", "WORST"],
+	"new": ["NEU", "NEW"],
 
 	"compare_title": ["VERGLEICH", "COMPARE"],
 	"compare_need": ["Mindestens 2 Produkte für den Vergleich.", "At least 2 products to compare."],

@@ -83,6 +83,13 @@ static func micro(text: String, color_key: String = "muted") -> Label:
 	l.add_theme_constant_override("line_spacing", 4)
 	return l
 
+## Kuerzt Text auf maxlen Zeichen (mit Ellipse) - verhindert Buchstabenumbrueche.
+static func short(text: String, maxlen: int) -> String:
+	var t := text.strip_edges()
+	if t.length() <= maxlen:
+		return t
+	return t.substr(0, maxi(1, maxlen - 1)).strip_edges() + "…"
+
 static func big_number(text: String, color_key: String = "text", size: int = FS_BIG) -> Label:
 	var l := label(text, size, color_key, 2)
 	return l
