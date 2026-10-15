@@ -48,4 +48,11 @@ static func build(app: App) -> Control:
 
 	btn.pressed.connect(do_search)
 	field.text_submitted.connect(func(_t): do_search.call())
+
+	# Vorbelegung aus dem Live-Screen ("Keine Naehrwerte -> im Netz suchen").
+	var pre: String = app.pending_search
+	app.pending_search = ""
+	if pre != "":
+		field.text = pre
+		do_search.call()
 	return root_c

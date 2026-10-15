@@ -82,7 +82,7 @@ func _build_body() -> void:
 	body.add_child(Shell.pad(_bottom_bar(), Shell.PAD, 12, Shell.PAD, 22))
 
 func _matrix_host() -> Control:
-	_matrix = UI.vbox(12)
+	_matrix = UI.vbox(8)
 	return _matrix
 
 func _vspacer() -> Control:
@@ -145,6 +145,8 @@ func refresh() -> void:
 	for c in _matrix.get_children():
 		c.queue_free()
 	var cols: Array = _columns()
+	if not cols.is_empty() and app.scan_status != "" and app.scan_status != "loading":
+		_matrix.add_child(_status_banner())
 	if cols.is_empty():
 		_matrix.add_child(_empty_state())
 	else:
@@ -161,24 +163,106 @@ func refresh() -> void:
 	else:
 		_pin_btn.text = "PIN"
 
+## Kompaktes Banner ueber der Matrix, wenn ein Scan keine brauchbaren Daten
+## geliefert hat (die gepinnten Produkte bleiben dabei sichtbar).
+func _status_banner() -> Control:
+	var status: String = app.scan_status
+	var text := ""
+	match status:
+		"nodata":
+			text = I18n.t("no_data")
+		"notfound":
+			text = I18n.t("not_found")
+		"rate":
+			text = I18n.t("error_rate")
+		"net":
+			text = I18n.t("error_net")
+	var card := UI.card(12)
+	var h := UI.hbox(12)
+	var l := UI.label(text, UI.FS_MICRO, "accent_ink", 1)
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	h.add_child(l)
+	if status == "nodata":
+		var s := UI.button(I18n.t("search_online"), "ghost", UI.FS_MICRO)
+		s.custom_minimum_size = Vector2(0, 62)
+		s.pressed.connect(func():
+			app.pending_search = app.last_missing.display_name(I18n.lang) if app.last_missing != null else ""
+			app.goto("search"))
+		h.add_child(s)
+	var g := UI.button(I18n.t("basic_food"), "ghost", UI.FS_MICRO)
+	g.custom_minimum_size = Vector2(0, 62)
+	g.pressed.connect(func(): app.goto("generics"))
+	h.add_child(g)
+	card.add_child(h)
+	return card
+
 func _empty_state() -> Control:
-	var msg := I18n.t("scan_hint")
-	match app.scan_status:
-		"loading": msg = I18n.t("loading")
-		"notfound": msg = I18n.t("not_found")
-		"rate": msg = I18n.t("error_rate")
-		"net": msg = I18n.t("error_net")
-	var card := UI.card(40)
-	var v := UI.vbox(14)
-	v.add_child(UI.label(msg, UI.FS_TITLE, "text" if app.scan_status == "" else "accent_ink", 1))
-	v.add_child(UI.label(I18n.t("attribution"), UI.FS_MICRO, "faint"))
+	var status: String = app.scan_status
+	var title := I18n.t("scan_hint")
+	var body := I18n.t("attribution")
+	var actions := false
+	var can_search := false
+	var can_retry := false
+	match status:
+		"loading":
+			title = I18n.t("loading")
+			body = ""
+		"notfound":
+			title = I18n.t("not_found")
+			body = I18n.t("barcode") + ": " + app.last_scan_code
+			actions = true
+			can_retry = true
+		"nodata":
+			title = I18n.t("no_data")
+			var nm := app.last_missing.display_name(I18n.lang) if app.last_missing != null else ""
+			body = (nm + " · " if nm != "" else "") + I18n.t("no_data_hint")
+			actions = true
+			can_search = true
+		"rate":
+			title = I18n.t("error_rate")
+			body = I18n.t("attribution")
+			actions = true
+			can_retry = true
+		"net":
+			title = I18n.t("error_net")
+			body = I18n.t("attribution")
+			actions = true
+			can_retry = true
+	var card := UI.card(38)
+	var v := UI.vbox(16)
+	v.add_child(UI.label(title, UI.FS_TITLE, "text" if status == "" else "accent_ink", 1))
+	if body != "":
+		var b := UI.label(body, UI.FS_SMALL, "muted")
+		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(b)
+	if actions:
+		var row := UI.hbox(12)
+		if can_search:
+			var s := UI.button(I18n.t("search_online"), "primary")
+			s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			s.pressed.connect(func():
+				app.pending_search = app.last_missing.display_name(I18n.lang) if app.last_missing != null else ""
+				app.goto("search"))
+			row.add_child(s)
+		var g := UI.button(I18n.t("basic_food"), "ghost" if can_search else "primary")
+		g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		g.pressed.connect(func(): app.goto("generics"))
+		row.add_child(g)
+		if can_retry:
+			var r := UI.button(I18n.t("retry"), "ghost")
+			r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			r.pressed.connect(func(): app.retry_scan())
+			row.add_child(r)
+		v.add_child(row)
 	card.add_child(v)
 	return card
 
 func _build_rows(cols: Array) -> void:
 	var n: int = cols.size()
 	var num_size: int = [96, 92, 78, 64][clampi(n - 1, 0, 3)]
-	var donut_h: int = [220, 156, 158, 140][clampi(n - 1, 0, 3)]
+	var donut_h: int = [200, 142, 144, 128][clampi(n - 1, 0, 3)]
 	var name_size: int = UI.FS_SMALL if n <= 2 else UI.FS_MICRO
 	var show_legend: bool = n <= 2
 	var show_best: bool = n >= 2

@@ -26,6 +26,7 @@ for s in live generics history search about settings; do
 done
 shot live_single live --single
 shot live_empty live --empty
+shot live_nodata live --nodata
 
 rm -rf "$USERDATA"
 echo "OK: Screenshots in $ROOT/screenshots"

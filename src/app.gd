@@ -14,7 +14,10 @@ var generics: Generics
 
 var tray: Array = []              # gepinnte Vergleichsprodukte (max 4)
 var current: Food = null          # zuletzt gescannt/gewaehlt (noch nicht gepinnt)
-var scan_status: String = ""      # Meldung im Live-Screen ("", "notfound", "rate", "net")
+var scan_status: String = ""      # "", "loading", "nodata", "notfound", "rate", "net"
+var last_scan_code: String = ""   # fuer "Nochmal"
+var last_missing: Food = null     # gefunden, aber ohne Naehrwerte
+var pending_search: String = ""   # Vorbelegung fuer den Suche-Screen
 
 var _current_screen: Control = null
 var _current_name: String = ""
@@ -26,6 +29,7 @@ var _demo: bool = false
 var _no_demo: bool = false
 var _single: bool = false
 var _two: bool = false
+var _nodata: bool = false
 
 func _ready() -> void:
 	for c in get_children():
@@ -90,6 +94,8 @@ func _parse_args() -> void:
 			_single = true
 		elif a == "--two":
 			_two = true
+		elif a == "--nodata":
+			_nodata = true
 		elif a == "--empty":
 			_demo = false
 			_no_demo = true
@@ -165,6 +171,7 @@ func on_scanned(code: String) -> void:
 	for f in tray:
 		if f.barcode == code:
 			return
+	last_scan_code = code
 	var cached := store.get_cached(code)
 	if cached != null and cached.has_kcal() and cached.has_macros():
 		_show_current(cached)
@@ -173,13 +180,29 @@ func on_scanned(code: String) -> void:
 	scan_status = "loading"
 	refresh_live()
 	var res: Dictionary = await off.fetch_product(code, cached != null)
-	if res.get("food", null) != null:
-		_show_current(res.food)
-	elif cached != null:
-		_show_current(cached)
-	else:
+	var food: Food = res.get("food", null)
+	if food == null and cached != null:
+		food = cached
+	if food == null:
 		scan_status = str(res.get("error", "net"))
+		last_missing = null
 		refresh_live()
+		return
+	# Gefunden, aber ohne brauchbare Naehrwerte -> nicht als Spalte aufnehmen,
+	# sondern klar melden und Auswege anbieten.
+	if not food.has_kcal() and not food.has_macros():
+		last_missing = food
+		scan_status = "nodata"
+		refresh_live()
+		return
+	_show_current(food)
+
+## Manuelles Wiederholen eines fehlgeschlagenen Scans (umgeht den Debounce).
+func retry_scan() -> void:
+	if last_scan_code == "":
+		return
+	_last_code = ""
+	on_scanned(last_scan_code)
 
 func _show_current(food: Food) -> void:
 	current = food
@@ -342,7 +365,16 @@ func _demo_data() -> void:
 	if _two:
 		while tray.size() > 1:
 			tray.pop_back()
-	if _shot_screen == "live":
+	if _nodata:
+		var f := _demo_food()
+		f.kcal = -1.0
+		f.protein = -1.0
+		f.carbs = -1.0
+		f.fat = -1.0
+		f.fiber = -1.0
+		last_missing = f
+		scan_status = "nodata"
+	elif _shot_screen == "live":
 		current = _demo_food()
 		scan_status = ""
 

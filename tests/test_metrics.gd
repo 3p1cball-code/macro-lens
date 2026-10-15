@@ -135,6 +135,7 @@ func _test_generics() -> void:
 	_ok("generics loaded > 40", g.all().size() > 40)
 	_ok("search skyr", g.search("skyr").size() >= 1)
 	_ok("search english name", g.search("banana").size() >= 1)
+	_ok("generic freeze-dried", g.search("gefriergetrocknet").size() >= 1)
 	var skyr: Food = g.search("skyr")[0]
 	_ok("generic has macros", skyr.has_macros())
 	_ok("generic protein density ok", Metrics.protein_density(skyr) > 0.0)
