@@ -1,0 +1,25 @@
+# Godot
+.godot/
+*.translation
+
+# Android-Build-Template (wird lokal ueber den Editor installiert, ~500 MB).
+# Ausser .gdignore (schuetzt Godot davor, das Template zu importieren).
+/android/*
+!/android/.gdignore
+
+# Export-Ausgaben
+/build/
+
+# Gradle (Plugin-Build)
+/plugins/*/build/
+/plugins/*/.gradle/
+/plugins/*/local.properties
+
+# temporaer
+/.tmp/
+
+# Lokale Export-Konfiguration (enthaelt Keystore-Passwort) -> siehe export_presets.cfg.example
+/export_presets.cfg
+*.keystore
+*.jks
+release.pw

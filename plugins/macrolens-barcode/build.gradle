@@ -1,0 +1,29 @@
+plugins {
+    id 'com.android.library'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace 'com.eyedea3d.macrolens'
+    compileSdk 35
+
+    defaultConfig {
+        minSdk 24
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+}
+
+dependencies {
+    // Godot Android library: nur zum Kompilieren noetig (wird zur Laufzeit von der Engine gestellt).
+    compileOnly files('../../android/build/libs/release/godot-lib.template_release.aar')
+    // Google Code Scanner (ML Kit Phase A): fertiger Scanner-Bildschirm, on-device.
+    implementation 'com.google.android.gms:play-services-code-scanner:16.1.0'
+}
