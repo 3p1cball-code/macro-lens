@@ -237,9 +237,12 @@ func _on_barcode_scanned(code: String) -> void:
 func _on_scan_cancelled() -> void:
 	pass
 
-func share_image(path: String) -> void:
+## Teilt Text: auf Android via Share-Sheet, am Desktop in die Zwischenablage.
+func share_text(text: String) -> void:
 	if Engine.has_singleton("MacroLens"):
-		Engine.get_singleton("MacroLens").shareImage(path)
+		Engine.get_singleton("MacroLens").call("shareText", text)
+	else:
+		DisplayServer.clipboard_set(text)
 
 # --- Theme / Sprache --------------------------------------------------------
 

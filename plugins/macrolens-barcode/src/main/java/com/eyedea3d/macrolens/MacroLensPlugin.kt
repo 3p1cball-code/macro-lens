@@ -1,5 +1,6 @@
 package com.eyedea3d.macrolens
 
+import android.content.Intent
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
@@ -55,6 +56,19 @@ class MacroLensPlugin(godot: Godot) : GodotPlugin(godot) {
                 .addOnFailureListener { e ->
                     emitSignal("scan_failed", e.message ?: "failed")
                 }
+        }
+    }
+
+    /** Teilt Text (z. B. eine Vergleichs-Zusammenfassung) ueber das System-Share-Sheet. */
+    @UsedByGodot
+    fun shareText(text: String) {
+        val act = activity ?: return
+        runOnUiThread {
+            val send = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, text)
+            }
+            act.startActivity(Intent.createChooser(send, null))
         }
     }
 }

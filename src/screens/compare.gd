@@ -141,11 +141,16 @@ static func _best(values: Array, lower: bool) -> int:
 	return idx
 
 static func _share(app: App) -> void:
-	var tree := app.get_tree()
-	await tree.process_frame
-	await tree.process_frame
-	var img := app.get_viewport().get_texture().get_image()
-	var path := "user://macro_lens_vergleich.png"
-	img.save_png(path)
-	app.share_image(ProjectSettings.globalize_path(path))
-	app.toast_text = I18n.t("share") + " ✓"
+	var lines: Array = ["Macro Lens — " + I18n.t("compare_title")]
+	for f in app.tray:
+		var ev := Metrics.evaluate(f)
+		var parts: Array = [f.display_name(I18n.lang)]
+		if ev.density_ok:
+			parts.append(Metrics.format_num(ev.density, 0) + " kcal/100 g")
+		if ev.protein_density_ok:
+			parts.append(Metrics.format_num(ev.protein_density, 1) + " g " + I18n.t("protein"))
+		if ev.fullness_ok:
+			parts.append(I18n.t("chart_satiety") + " " + str(ev.fullness.get("score", 0)) + "/100")
+		lines.append("• " + " · ".join(parts))
+	lines.append(I18n.t("attribution"))
+	app.share_text("\n".join(lines))
