@@ -9,7 +9,7 @@ better pick — in seconds, without reading labels.
 
 <p align="center">
   <img src="screenshots/live.png" width="31%" alt="Continuous scan with a live camera preview and up to four compared products">
-  <img src="screenshots/live_empty.png" width="31%" alt="Waiting for a barcode">
+  <img src="screenshots/live_single.png" width="31%" alt="One scanned product with its four charts">
   <img src="screenshots/generics.png" width="31%" alt="Unpackaged basics">
 </p>
 

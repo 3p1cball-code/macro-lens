@@ -10,10 +10,22 @@ RES="${SHOT_RES:-480x854}"
 export XDG_DATA_HOME="${XDG_DATA_HOME:-$TOOLS/godotdata}"
 export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$TOOLS/godotconfig}"
 
+USERDATA="$TOOLS/godotdata/godot/app_userdata/Macro Lens"
 mkdir -p "$ROOT/screenshots"
-for s in live generics history search about settings; do
+
+shot() { # name screen [extra]
+	local name="$1" screen="$2" extra="${3:-}"
+	rm -rf "$USERDATA"
 	"$TOOLS/bin/godot" --display-driver "$DRIVER" --resolution "$RES" --path "$ROOT" \
-		-- --shot="$ROOT/screenshots/$s.png" --screen="$s" >/dev/null 2>&1 || true
-	echo "  $s.png"
+		-- --shot="$ROOT/screenshots/$name.png" --screen="$screen" $extra >/dev/null 2>&1 || true
+	echo "  $name.png"
+}
+
+for s in live generics history search about settings; do
+	shot "$s" "$s"
 done
+shot live_single live --single
+shot live_empty live --empty
+
+rm -rf "$USERDATA"
 echo "OK: Screenshots in $ROOT/screenshots"

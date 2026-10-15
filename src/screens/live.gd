@@ -177,9 +177,11 @@ func _empty_state() -> Control:
 
 func _build_rows(cols: Array) -> void:
 	var n: int = cols.size()
-	var num_size: int = [120, 92, 78, 64][clampi(n - 1, 0, 3)]
-	var donut_h: int = [230, 190, 158, 140][clampi(n - 1, 0, 3)]
+	var num_size: int = [96, 92, 78, 64][clampi(n - 1, 0, 3)]
+	var donut_h: int = [210, 190, 158, 140][clampi(n - 1, 0, 3)]
 	var name_size: int = UI.FS_SMALL if n <= 2 else UI.FS_MICRO
+	var show_legend: bool = n <= 2
+	var show_best: bool = n >= 2
 
 	var evals: Array = []
 	var kcals: Array = []
@@ -204,42 +206,80 @@ func _build_rows(cols: Array) -> void:
 		names.add_child(_head_cell(cols[i], name_size))
 	_matrix.add_child(names)
 
-	# Makro-Donut
+	# Makro-Donut (Prozente daneben; kompakt: Eiweiss-Prozent im Kreis)
 	var drows: Array = []
 	for i in range(n):
-		var cell := UI.vbox(0)
-		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var d := MacroDonut.new()
-		d.custom_minimum_size = Vector2(0, donut_h)
-		d.ring_width = donut_h * 0.16
-		if evals[i].split_ok:
-			d.set_split(evals[i].split)
-		cell.add_child(d)
-		drows.append(cell)
+		drows.append(_donut_cell(evals[i], donut_h, show_legend))
 	_matrix.add_child(_row("lbl_macros", drows))
 	_matrix.add_child(UI.hline("line"))
 
-	# Kaloriendichte
+	# Kaloriendichte (gruen -> rot, auf einer Skala 0..500)
 	var krows: Array = []
 	for i in range(n):
-		krows.append(_num_cell(Metrics.format_num(evals[i].density, 0) if evals[i].density_ok else "–", "kcal/100 g", num_size, i == best_kcal))
+		var ev = evals[i]
+		var col: Color = UI.c("faint") if not ev.density_ok else UI.scale_color(Metrics.density_t(ev.density))
+		krows.append(_bar_cell(Metrics.format_num(ev.density, 0) if ev.density_ok else "–", "kcal/100 g", ev.density if ev.density_ok else -1.0, 500.0, col, num_size, show_best and i == best_kcal))
 	_matrix.add_child(_row("lbl_density", krows))
 	_matrix.add_child(UI.hline("line"))
 
-	# Eiweissdichte
+	# Eiweissdichte (viel = gruen)
 	var prows: Array = []
 	for i in range(n):
-		prows.append(_bar_cell(Metrics.format_num(evals[i].protein_density, 1) if evals[i].protein_density_ok else "–", "g/100 kcal", evals[i].protein_density if evals[i].protein_density_ok else -1.0, 25.0, "protein", num_size, i == best_pd))
+		var ev = evals[i]
+		var col: Color = UI.c("faint") if not ev.protein_density_ok else UI.scale_color(Metrics.protein_t(ev.protein_density))
+		prows.append(_bar_cell(Metrics.format_num(ev.protein_density, 1) if ev.protein_density_ok else "–", "g/100 kcal", ev.protein_density if ev.protein_density_ok else -1.0, 25.0, col, num_size, show_best and i == best_pd))
 	_matrix.add_child(_row("lbl_protein", prows))
 	_matrix.add_child(UI.hline("line"))
 
-	# Saettigung
+	# Saettigung (hoch = gruen)
 	var srows: Array = []
 	for i in range(n):
-		var sc: float = float(evals[i].fullness.get("score", -1)) if evals[i].fullness_ok else -1.0
-		var ck := "good" if sc >= 60 else ("warn" if sc >= 35 else "bad")
-		srows.append(_bar_cell(str(int(sc)) if sc >= 0.0 else "–", "von 100", sc, 100.0, ck, num_size, i == best_sat))
+		var ev = evals[i]
+		var sc: float = float(ev.fullness.get("score", -1)) if ev.fullness_ok else -1.0
+		var col: Color = UI.c("faint") if sc < 0.0 else UI.scale_color(Metrics.satiety_t(sc))
+		srows.append(_bar_cell(str(int(sc)) if sc >= 0.0 else "–", "von 100", sc, 100.0, col, num_size, show_best and i == best_sat))
 	_matrix.add_child(_row("lbl_satiety", srows))
+
+func _donut_cell(ev: Dictionary, h: int, show_legend: bool) -> Control:
+	var cell := UI.hbox(26)
+	cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if show_legend:
+		cell.alignment = BoxContainer.ALIGNMENT_CENTER
+	var d := MacroDonut.new()
+	d.custom_minimum_size = Vector2(h, h)
+	d.ring_width = h * 0.16
+	d.center_mode = "none" if show_legend else "protein"
+	if ev.split_ok:
+		d.set_split(ev.split)
+	cell.add_child(d)
+	if show_legend and ev.split_ok:
+		var legend := UI.vbox(12)
+		legend.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		legend.add_child(_legend_row("protein", ev.split))
+		legend.add_child(_legend_row("carbs", ev.split))
+		legend.add_child(_legend_row("fat", ev.split))
+		cell.add_child(legend)
+	return cell
+
+func _legend_row(key: String, split: Dictionary) -> Control:
+	var row := UI.hbox(14)
+	row.custom_minimum_size = Vector2(320, 0)
+	var ck: String = "protein"
+	if key == "carbs":
+		ck = "carbs"
+	elif key == "fat":
+		ck = "fat"
+	var sw := ColorRect.new()
+	sw.color = UI.c(ck)
+	sw.custom_minimum_size = Vector2(22, 22)
+	sw.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(sw)
+	var nm := UI.label(I18n.t(key + "_short"), UI.FS_MICRO, "muted", 1)
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nm.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	row.add_child(nm)
+	row.add_child(UI.label(str(roundi(float(split.get(key, 0.0)) * 100.0)) + " %", UI.FS_BODY, "text", 2))
+	return row
 
 func _row(label_key: String, cells: Array) -> Control:
 	var row := UI.hbox(12)
@@ -282,25 +322,14 @@ func _head_cell(col: Dictionary, name_size: int) -> Control:
 	cell.add_child(subrow)
 	return cell
 
-func _num_cell(value: String, unit: String, num_size: int, best: bool) -> Control:
-	var cell := UI.vbox(2)
-	cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	cell.add_child(UI.big_number(value, "good" if best else "text", num_size))
-	cell.add_child(UI.micro(unit))
-	if best:
-		var h := UI.hbox(0)
-		h.add_child(UI.chip(I18n.t("best"), "good"))
-		cell.add_child(h)
-	return cell
-
-func _bar_cell(value: String, unit: String, raw: float, maxv: float, color_key: String, num_size: int, best: bool) -> Control:
+func _bar_cell(value: String, unit: String, raw: float, maxv: float, col: Color, num_size: int, best: bool) -> Control:
 	var cell := UI.vbox(6)
 	cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	cell.add_child(UI.big_number(value, "good" if best else "text", num_size))
+	cell.add_child(UI.big_number_colored(value, col, num_size))
 	cell.add_child(UI.micro(unit))
 	var bar := MeterBar.new()
 	bar.bar_h = 26.0
-	bar.set_value(raw, maxv, color_key)
+	bar.set_value(raw, maxv, "", col)
 	cell.add_child(bar)
 	if best:
 		var h := UI.hbox(0)

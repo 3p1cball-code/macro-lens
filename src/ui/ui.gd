@@ -83,12 +83,28 @@ static func micro(text: String, color_key: String = "muted") -> Label:
 	l.add_theme_constant_override("line_spacing", 4)
 	return l
 
+## Farbskala 0..1: gruen (0) -> amber (0.5) -> rot (1).
+static func scale_color(t: float) -> Color:
+	t = clampf(t, 0.0, 1.0)
+	var green := Color("#4CC38A")
+	var amber := Color("#E8B931")
+	var red := Color("#E5484D")
+	if t < 0.5:
+		return green.lerp(amber, t / 0.5)
+	return amber.lerp(red, (t - 0.5) / 0.5)
+
 ## Kuerzt Text auf maxlen Zeichen (mit Ellipse) - verhindert Buchstabenumbrueche.
 static func short(text: String, maxlen: int) -> String:
 	var t := text.strip_edges()
 	if t.length() <= maxlen:
 		return t
 	return t.substr(0, maxi(1, maxlen - 1)).strip_edges() + "…"
+
+## Grosse Zahl in freier Farbe (fuer die Farbskalen).
+static func big_number_colored(text: String, color: Color, size: int = FS_BIG) -> Label:
+	var l := label(text, size, "text", 2)
+	l.add_theme_color_override("font_color", color)
+	return l
 
 static func big_number(text: String, color_key: String = "text", size: int = FS_BIG) -> Label:
 	var l := label(text, size, color_key, 2)

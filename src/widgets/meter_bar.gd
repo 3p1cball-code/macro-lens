@@ -7,6 +7,7 @@ class_name MeterBar
 var value: float = -1.0
 var maxv: float = 100.0
 var color_key: String = "accent"
+var color_override: Color = Color(0, 0, 0, 0)
 var bar_h: float = 46.0
 var threshold: float = -1.0
 var threshold_key: String = "text"
@@ -15,12 +16,14 @@ func _ready() -> void:
 	custom_minimum_size = Vector2(0, bar_h)
 	resized.connect(queue_redraw)
 
-func set_value(v: float, mx: float = -1.0, ck: String = "") -> void:
+func set_value(v: float, mx: float = -1.0, ck: String = "", col: Color = Color(0, 0, 0, 0)) -> void:
 	value = v
 	if mx > 0.0:
 		maxv = mx
 	if ck != "":
 		color_key = ck
+	if col.a > 0.0:
+		color_override = col
 	queue_redraw()
 
 func _draw() -> void:
@@ -38,7 +41,7 @@ func _draw() -> void:
 	var fw: float = maxf(frac * (w - 2.0), 0.0)
 	if fw > 0.5:
 		var fb := StyleBoxFlat.new()
-		fb.bg_color = UI.c(color_key)
+		fb.bg_color = color_override if color_override.a > 0.0 else UI.c(color_key)
 		fb.set_corner_radius_all(3)
 		draw_style_box(fb, Rect2(1, 1, fw, bar_h - 2.0))
 	if threshold >= 0.0:

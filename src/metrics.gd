@@ -128,6 +128,16 @@ static func format_num(v: float, decimals: int = 1) -> String:
 		s = s.rstrip("0").rstrip(".")
 	return s
 
+## Position auf einer Grün->Rot-Skala (0 = "gut", 1 = "schlecht").
+static func density_t(kcal: float) -> float:
+	return clampf(kcal / 500.0, 0.0, 1.0)
+
+static func protein_t(pd: float) -> float:
+	return 1.0 - clampf(pd / 20.0, 0.0, 1.0)
+
+static func satiety_t(score: float) -> float:
+	return 1.0 - clampf(score / 100.0, 0.0, 1.0)
+
 static func density_label(band: int, lang: String = "de") -> String:
 	if lang == "en":
 		return ["Very low", "Low", "Medium", "High", "Very high"][clampi(band, 0, 4)]

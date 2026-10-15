@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.view.Gravity
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.widget.FrameLayout
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -105,9 +106,24 @@ class MacroLensPlugin(godot: Godot) : GodotPlugin(godot) {
         }
     }
 
+    private fun contentHeight(): Int {
+        val act = activity ?: return 0
+        val content = act.findViewById<ViewGroup>(android.R.id.content)
+        if (content != null && content.height > 0) {
+            return content.height
+        }
+        return act.resources.displayMetrics.heightPixels
+    }
+
+    private fun applyPreviewHeight() {
+        val pv = previewView ?: return
+        val lp = pv.layoutParams as? FrameLayout.LayoutParams ?: return
+        lp.height = (contentHeight() * heightFraction).toInt()
+        pv.layoutParams = lp
+    }
+
     private fun startPreviewInternal() {
         val act = activity ?: return
-        val heightPx = (act.resources.displayMetrics.heightPixels * heightFraction).toInt()
 
         var pv = previewView
         if (pv == null) {
@@ -121,15 +137,27 @@ class MacroLensPlugin(godot: Godot) : GodotPlugin(godot) {
                 pv,
                 FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    heightPx,
+                    (contentHeight() * heightFraction).toInt(),
                     Gravity.TOP
                 )
             )
             previewView = pv
         } else {
-            val lp = pv.layoutParams as FrameLayout.LayoutParams
-            lp.height = heightPx
-            pv.layoutParams = lp
+            applyPreviewHeight()
+        }
+
+        // Hoehe aus dem Content-View (gleicher Koordinatenraum wie die Godot-Surface);
+        // erst nach dem Layout verfuegbar -> einmalig nachziehen.
+        val content = act.findViewById<ViewGroup>(android.R.id.content)
+        if (content != null && content.height == 0) {
+            content.viewTreeObserver.addOnGlobalLayoutListener(
+                object : ViewTreeObserver.OnGlobalLayoutListener {
+                    override fun onGlobalLayout() {
+                        content.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                        applyPreviewHeight()
+                    }
+                }
+            )
         }
 
         val future = ProcessCameraProvider.getInstance(act)
