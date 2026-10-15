@@ -99,7 +99,7 @@ GitHub Pages ist eingerichtet und live:
 | App-Symbol 512×512 | `store/icon-512.png` |
 | Feature-Grafik 1024×500 | `store/feature-graphic-1024x500.png` |
 | Telefon-Screenshots (2–8) | `store/screenshots/de/*.png` |
-| Kontakt-E-Mail | `info@augenrahmen.de` |
+| Kontakt-E-Mail | `macro-lens@eyedea3d.com` |
 | Website | `https://augenrahmen.de` (oder die Pages-URL) |
 | Kategorie & Tags | Gesundheit & Fitness · Ernährung, Einkaufen |
 

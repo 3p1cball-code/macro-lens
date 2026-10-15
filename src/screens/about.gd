@@ -20,6 +20,7 @@ static func build(app: App) -> Control:
 	v.add_child(UI.hline())
 	v.add_child(UI.label(I18n.t("attribution"), UI.FS_MICRO, "faint"))
 	v.add_child(UI.label("Macro Lens · v" + str(ProjectSettings.get_setting("application/config/version", "0.1.0")), UI.FS_MICRO, "faint"))
+	v.add_child(UI.label(I18n.t("contact") + " · macro-lens@eyedea3d.com", UI.FS_MICRO, "faint"))
 	card.add_child(v)
 	content.add_child(card)
 

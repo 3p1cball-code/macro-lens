@@ -55,6 +55,6 @@ Hinweis: Die Sättigung ist eine Schätzung. Macro Lens ist ein Alltagshelfer un
 ## Weitere Angaben
 - **App-Kategorie:** Gesundheit & Fitness (Alternative: Essen & Trinken)
 - **Tags:** Ernährung, Gesundheit, Einkaufen, Fitness
-- **Kontakt-E-Mail:** info@augenrahmen.de
+- **Kontakt-E-Mail:** macro-lens@eyedea3d.com
 - **Website (optional):** https://augenrahmen.de
 - **Datenschutzerklärung:** https://3p1cball-code.github.io/macro-lens/privacy.html

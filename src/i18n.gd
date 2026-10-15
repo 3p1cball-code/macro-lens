@@ -98,6 +98,7 @@ const STRINGS := {
 	"language": ["Sprache", "Language"],
 
 	"about_text": ["Ein Messgerät, kein Tagebuch.", "A measuring device, not a diary."],
+	"contact": ["Kontakt", "Contact"],
 	"about_body": [
 		"Kamera auf ein Produkt halten, Barcode erkannt, vier Grafiken.\nKeine Konten, keine Cloud, keine Werbung, keine Telemetrie.\nSättigung ist eine Schätzung.",
 		"Point the camera at a product, barcode scanned, four charts.\nNo accounts, no cloud, no ads, no telemetry.\nSatiety is an estimate."],

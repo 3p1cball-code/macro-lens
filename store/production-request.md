@@ -60,6 +60,6 @@ Ich möchte die App jetzt für alle Nutzer freigeben.
 
 Bei **Einzelpersonen-Konten** werden **Entwicklername und Kontaktdaten im Store öffentlich**
 angezeigt.
-- Entwicklername: `Alexander Riedel` (oder z. B. `augenrahmen`)
-- E-Mail: `info@augenrahmen.de`
+- Entwicklername: `Alexander Riedel` (so gewählt)
+- E-Mail: `macro-lens@eyedea3d.com`
 - Website: `https://augenrahmen.de` (optional)

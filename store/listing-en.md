@@ -49,5 +49,5 @@ Note: satiety is an estimate. Macro Lens is an everyday helper, not medical advi
 ## Other details
 - **Category:** Health & Fitness (alternative: Food & Drink)
 - **Tags:** nutrition, health, shopping, fitness
-- **Contact email:** info@augenrahmen.de
+- **Contact email:** macro-lens@eyedea3d.com
 - **Privacy policy:** https://3p1cball-code.github.io/macro-lens/privacy.html
