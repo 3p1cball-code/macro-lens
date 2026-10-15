@@ -14,7 +14,6 @@ var tray: Array = []              # Array[Food]
 var last_food: Food = null
 var last_error: String = ""       # ""|"net"|"rate"|"notfound"
 var last_barcode: String = ""
-var toast_text: String = ""
 
 var _current: Control = null
 var _current_name: String = ""
@@ -71,6 +70,7 @@ func _capture_shot() -> void:
 
 func goto(name: String) -> void:
 	if _current != null:
+		remove_child(_current)
 		_current.queue_free()
 		_current = null
 	_current_name = name
@@ -87,7 +87,6 @@ func goto(name: String) -> void:
 		_: node = HomeScreen.build(self)
 	_current = node
 	add_child(node)
-	toast_text = ""
 
 func is_home() -> bool:
 	return _current_name == "home"
