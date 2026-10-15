@@ -13,6 +13,7 @@ static func build(app: App) -> Control:
 	content.add_child(filter)
 
 	var list := UI.vbox(14)
+	list.mouse_filter = Control.MOUSE_FILTER_PASS
 	content.add_child(list)
 
 	var entries: Array = app.store.history
@@ -33,6 +34,7 @@ static func build(app: App) -> Control:
 			if food == null and str(e.get("source", "")) == "generic":
 				continue
 			var row := UI.hbox(12)
+			row.mouse_filter = Control.MOUSE_FILTER_PASS
 			var kcal := ""
 			if food != null and food.has_kcal():
 				kcal = Metrics.format_num(food.kcal, 0) + " kcal"

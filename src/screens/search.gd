@@ -17,6 +17,7 @@ static func build(app: App) -> Control:
 	var status := UI.label("", UI.FS_SMALL, "muted")
 	content.add_child(status)
 	var list := UI.vbox(14)
+	list.mouse_filter = Control.MOUSE_FILTER_PASS
 	content.add_child(list)
 
 	var do_search := func():
@@ -34,6 +35,7 @@ static func build(app: App) -> Control:
 			return
 		for f in foods:
 			var r := UI.hbox(12)
+			r.mouse_filter = Control.MOUSE_FILTER_PASS
 			var kcal: String = Metrics.format_num(f.kcal, 0) + " kcal" if f.has_kcal() else ""
 			var sub: String = f.brand if f.brand != "" else ""
 			var on_show := func(): app.set_current(f); app.goto("live")

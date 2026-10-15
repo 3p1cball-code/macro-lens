@@ -291,15 +291,22 @@ static func list_row(title: String, subtitle: String, right_text: String = "", o
 		r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(r)
 	p.add_child(row)
+	# PASS, damit ein Zieh-Gesten-Event den ScrollContainer erreicht; getippt wird
+	# erst beim Loslassen ohne nennenswerte Bewegung (sonst loest Scrollen aus).
+	p.mouse_filter = Control.MOUSE_FILTER_PASS
 	if on_press.is_valid():
 		p.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		p.mouse_filter = Control.MOUSE_FILTER_STOP
+		var tap := {"pos": Vector2.ZERO, "down": false}
 		p.gui_input.connect(func(ev: InputEvent):
-			if (ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT) \
-					or (ev is InputEventScreenTouch and ev.pressed):
-				on_press.call())
-	else:
-		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			if not (ev is InputEventMouseButton) or ev.button_index != MOUSE_BUTTON_LEFT:
+				return
+			if ev.pressed:
+				tap["pos"] = ev.global_position
+				tap["down"] = true
+			elif tap["down"]:
+				tap["down"] = false
+				if ev.global_position.distance_to(tap["pos"]) <= 24.0:
+					on_press.call())
 	return p
 
 # --- Kleine Bausteine -------------------------------------------------------

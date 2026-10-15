@@ -14,6 +14,7 @@ static func build(app: App) -> Control:
 	content.add_child(manual)
 
 	var list := UI.vbox(10)
+	list.mouse_filter = Control.MOUSE_FILTER_PASS
 	content.add_child(list)
 
 	var rebuild := func(q: String):
@@ -30,6 +31,7 @@ static func build(app: App) -> Control:
 				last_group = f.group
 				list.add_child(UI.micro(f.group))
 			var r := UI.hbox(10)
+			r.mouse_filter = Control.MOUSE_FILTER_PASS
 			var sub: String = f.group if filtering else ""
 			var kcal: String = (Metrics.format_num(f.kcal, 0) + " kcal") if f.has_kcal() else ""
 			var on_tap := func(): app.add_pinned(f); app.goto("live")

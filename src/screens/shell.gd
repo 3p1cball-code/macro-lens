@@ -26,6 +26,7 @@ static func scroll() -> ScrollContainer:
 	var s := ScrollContainer.new()
 	s.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	s.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	s.scroll_deadzone = 30
 	s.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	return s
 
@@ -74,6 +75,7 @@ static func page(app: App, title: String, content: Control, with_back: bool = tr
 	col.add_child(pad(header(app, title, with_back, right), PAD, 36, PAD, 0))
 	var inner := pad(content, PAD, GAP, PAD, 60)
 	inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	inner.mouse_filter = Control.MOUSE_FILTER_PASS
 	var sc := scroll()
 	sc.add_child(inner)
 	col.add_child(sc)
@@ -85,6 +87,8 @@ static func page(app: App, title: String, content: Control, with_back: bool = tr
 static func content_col(sep: int = GAP) -> VBoxContainer:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", sep)
+	# Events durchreichen, damit der ScrollContainer Zieh-Gesten bekommt.
+	v.mouse_filter = Control.MOUSE_FILTER_PASS
 	return v
 
 ## Kompakter Text-Button in der Kopfzeile (statt Emoji-Glyphen -> sicher auf Android).
