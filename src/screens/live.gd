@@ -178,7 +178,7 @@ func _empty_state() -> Control:
 func _build_rows(cols: Array) -> void:
 	var n: int = cols.size()
 	var num_size: int = [96, 92, 78, 64][clampi(n - 1, 0, 3)]
-	var donut_h: int = [210, 190, 158, 140][clampi(n - 1, 0, 3)]
+	var donut_h: int = [220, 156, 158, 140][clampi(n - 1, 0, 3)]
 	var name_size: int = UI.FS_SMALL if n <= 2 else UI.FS_MICRO
 	var show_legend: bool = n <= 2
 	var show_best: bool = n >= 2
@@ -241,7 +241,7 @@ func _build_rows(cols: Array) -> void:
 	_matrix.add_child(_row("lbl_satiety", srows))
 
 func _donut_cell(ev: Dictionary, h: int, show_legend: bool) -> Control:
-	var cell := UI.hbox(26)
+	var cell := UI.hbox(18 if show_legend else 0)
 	cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if show_legend:
 		cell.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -262,8 +262,7 @@ func _donut_cell(ev: Dictionary, h: int, show_legend: bool) -> Control:
 	return cell
 
 func _legend_row(key: String, split: Dictionary) -> Control:
-	var row := UI.hbox(14)
-	row.custom_minimum_size = Vector2(320, 0)
+	var row := UI.hbox(10)
 	var ck: String = "protein"
 	if key == "carbs":
 		ck = "carbs"
@@ -271,12 +270,14 @@ func _legend_row(key: String, split: Dictionary) -> Control:
 		ck = "fat"
 	var sw := ColorRect.new()
 	sw.color = UI.c(ck)
-	sw.custom_minimum_size = Vector2(22, 22)
+	sw.custom_minimum_size = Vector2(20, 20)
 	sw.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(sw)
 	var nm := UI.label(I18n.t(key + "_short"), UI.FS_MICRO, "muted", 1)
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	nm.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	nm.custom_minimum_size = Vector2(92, 0)
 	row.add_child(nm)
 	row.add_child(UI.label(str(roundi(float(split.get(key, 0.0)) * 100.0)) + " %", UI.FS_BODY, "text", 2))
 	return row

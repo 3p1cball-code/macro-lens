@@ -25,6 +25,7 @@ var _shot_screen: String = "live"
 var _demo: bool = false
 var _no_demo: bool = false
 var _single: bool = false
+var _two: bool = false
 
 func _ready() -> void:
 	for c in get_children():
@@ -87,6 +88,8 @@ func _parse_args() -> void:
 			_demo = true
 		elif a == "--single":
 			_single = true
+		elif a == "--two":
+			_two = true
 		elif a == "--empty":
 			_demo = false
 			_no_demo = true
@@ -333,6 +336,9 @@ func _demo_data() -> void:
 			tray.append(g)
 	if _single:
 		tray.clear()
+	if _two:
+		while tray.size() > 1:
+			tray.pop_back()
 	if _shot_screen == "live":
 		current = _demo_food()
 		scan_status = ""
