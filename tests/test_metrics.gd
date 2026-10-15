@@ -126,6 +126,16 @@ func _test_off_parsing() -> void:
 	_ok("prepared has macros", f3.has_macros())
 	_near("prepared protein", f3.protein, 12.0, 0.01)
 	_near("prepared fiber", f3.fiber, 1.0, 0.01)
+	# Name nur im lokalisierten Feld bzw. generic_name
+	var p4 := {
+		"code": "1", "product_name_de": "Gratinkäse", "generic_name": "Käse",
+		"nutriments": {"energy-kcal_100g": 300.0, "proteins_100g": 20.0, "carbohydrates_100g": 2.0, "fat_100g": 24.0},
+	}
+	_ok("localized name fallback", OffClient.parse_product(p4).name == "Gratinkäse")
+	var p5 := {"code": "2", "generic_name": "Gratinkäse", "nutriments": {"energy-kcal_100g": 300.0}}
+	_ok("generic_name fallback", OffClient.parse_product(p5).name == "Gratinkäse")
+	# Eintrag ohne Namen -> leerer Name (wird als unbrauchbar behandelt)
+	_ok("nameless stays empty", OffClient.parse_product({"code": "3", "nutriments": {}}).name == "")
 	# leeres Produkt -> null
 	_ok("empty product -> null", OffClient.parse_product({}) == null)
 

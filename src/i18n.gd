@@ -33,6 +33,7 @@ const STRINGS := {
 	"loading": ["Lade Produkt …", "Loading product …"],
 	"not_found": ["Nicht in der Datenbank gefunden.", "Not found in the database."],
 	"no_data": ["Keine Nährwerte hinterlegt", "No nutrition data available"],
+	"no_name": ["Eintrag ohne Produktnamen", "Entry without a product name"],
 	"no_data_hint": ["Open Food Facts hat für dieses Produkt keine Nährwerte. Suche im Netz oder nimm ein Grundnahrungsmittel.", "Open Food Facts has no nutrition data for this product. Search online or pick a basic food."],
 	"search_online": ["IM NETZ SUCHEN", "SEARCH ONLINE"],
 	"basic_food": ["GRUNDNAHRUNG", "BASIC FOOD"],

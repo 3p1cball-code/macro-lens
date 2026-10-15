@@ -188,8 +188,14 @@ func on_scanned(code: String) -> void:
 		last_missing = null
 		refresh_live()
 		return
-	# Gefunden, aber ohne brauchbare Naehrwerte -> nicht als Spalte aufnehmen,
-	# sondern klar melden und Auswege anbieten.
+	# Gefunden, aber unbrauchbar (kein Name und/oder keine Naehrwerte) ->
+	# nicht als Spalte aufnehmen, sondern klar melden und Auswege anbieten.
+	# (Kein Ergebnis ohne Produktnamen.)
+	if food.name.strip_edges() == "":
+		last_missing = food
+		scan_status = "noname"
+		refresh_live()
+		return
 	if not food.has_kcal() and not food.has_macros():
 		last_missing = food
 		scan_status = "nodata"

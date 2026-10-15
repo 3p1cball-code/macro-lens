@@ -170,9 +170,12 @@ func _status_banner() -> Control:
 	var text := ""
 	match status:
 		"nodata":
-			text = I18n.t("no_data")
+			var nm := app.last_missing.display_name(I18n.lang) if app.last_missing != null else ""
+			text = I18n.t("no_data") + (" · " + nm if nm != "" else " · " + app.last_scan_code)
+		"noname":
+			text = I18n.t("no_name") + " · " + app.last_scan_code
 		"notfound":
-			text = I18n.t("not_found")
+			text = I18n.t("not_found") + " · " + app.last_scan_code
 		"rate":
 			text = I18n.t("error_rate")
 		"net":
@@ -217,9 +220,13 @@ func _empty_state() -> Control:
 		"nodata":
 			title = I18n.t("no_data")
 			var nm := app.last_missing.display_name(I18n.lang) if app.last_missing != null else ""
-			body = (nm + " · " if nm != "" else "") + I18n.t("no_data_hint")
+			body = (nm + " · " if nm != "" else app.last_scan_code + " · ") + I18n.t("no_data_hint")
 			actions = true
 			can_search = true
+		"noname":
+			title = I18n.t("no_name")
+			body = I18n.t("barcode") + ": " + app.last_scan_code + " · " + I18n.t("no_data_hint")
+			actions = true
 		"rate":
 			title = I18n.t("error_rate")
 			body = I18n.t("attribution")

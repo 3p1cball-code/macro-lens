@@ -6,8 +6,9 @@ class_name OffClient
 ## ohne Netz geraten; bei Fehlern faellt der Aufrufer auf den Cache zurueck.
 
 const USER_AGENT := "MacroLens/0.1 (alexander.riedel@eyedea3d.com)"
-const PRODUCT_URL := "https://world.openfoodfacts.org/api/v2/product/%s?fields=code,product_name,brands,quantity,serving_size,nutriments,image_front_url,completeness"
-const SEARCH_URL := "https://world.openfoodfacts.org/cgi/search.pl?action=process&json=1&search_simple=1&page_size=20&fields=code,product_name,brands,quantity,serving_size,nutriments,image_front_url,nutriscore_grade&search_terms=%s"
+const FIELDS := "code,product_name,product_name_de,product_name_en,generic_name,brands,quantity,serving_size,nutriments,image_front_url,completeness"
+const PRODUCT_URL := "https://world.openfoodfacts.org/api/v2/product/%s?fields=" + FIELDS
+const SEARCH_URL := "https://world.openfoodfacts.org/cgi/search.pl?action=process&json=1&search_simple=1&page_size=20&fields=" + FIELDS + "&search_terms=%s"
 
 var store: Store
 var _last_request_ms: int = 0
@@ -62,7 +63,7 @@ func search(query: String) -> Dictionary:
 	if parsed is Dictionary:
 		for p in parsed.get("products", []):
 			var f := parse_product(p)
-			if f != null and f.display_name() != "Unbekanntes Produkt":
+			if f != null and f.name.strip_edges() != "":
 				out.append(f)
 	return {"foods": out, "error": ""}
 
@@ -74,7 +75,13 @@ static func parse_product(p: Dictionary) -> Food:
 	var n: Dictionary = p.get("nutriments", {})
 	var f := Food.new()
 	f.barcode = str(p.get("code", p.get("_id", "")))
-	f.name = str(p.get("product_name", "")).strip_edges()
+	# Name defensiv: viele Eintraege haben nur den lokalisierten Namen oder generic_name.
+	f.name = _first_text([
+		p.get("product_name", ""),
+		p.get("product_name_de", ""),
+		p.get("product_name_en", ""),
+		p.get("generic_name", ""),
+	])
 	f.brand = _first_brand(str(p.get("brands", "")))
 	f.quantity = str(p.get("quantity", ""))
 	f.serving_g = _parse_grams(str(p.get("serving_size", "")))
@@ -108,6 +115,13 @@ static func _nutri(n: Dictionary, base: String) -> float:
 	if v >= 0.0:
 		return v
 	return _num(n, base + "_prepared_100g")
+
+static func _first_text(values: Array) -> String:
+	for v in values:
+		var s := str(v).strip_edges()
+		if s != "" and s.to_lower() != "null":
+			return s
+	return ""
 
 static func _first_brand(brands: String) -> String:
 	var b := brands.strip_edges()
