@@ -166,14 +166,17 @@ func on_scanned(code: String) -> void:
 		if f.barcode == code:
 			return
 	var cached := store.get_cached(code)
-	if cached != null:
+	if cached != null and cached.has_kcal() and cached.has_macros():
 		_show_current(cached)
 		return
+	# Unbekannt ODER unvollstaendig gespeichert (z. B. aeltere Eintraege) -> nachladen.
 	scan_status = "loading"
 	refresh_live()
-	var res: Dictionary = await off.fetch_product(code)
+	var res: Dictionary = await off.fetch_product(code, cached != null)
 	if res.get("food", null) != null:
 		_show_current(res.food)
+	elif cached != null:
+		_show_current(cached)
 	else:
 		scan_status = str(res.get("error", "net"))
 		refresh_live()

@@ -20,11 +20,11 @@ func _ready() -> void:
 # --- Produkt per Barcode ----------------------------------------------------
 
 ## Rueckgabe: {food: Food|null, cached: bool, error: ""|"net"|"rate"|"notfound"}
-func fetch_product(barcode: String) -> Dictionary:
+## force=true umgeht den Cache (z. B. wenn ein alter Eintrag keine Makros hat).
+func fetch_product(barcode: String, force: bool = false) -> Dictionary:
 	var cached := store.get_cached(barcode) if store else null
-	if cached != null:
-		# Cache-first: sofort nutzbar, aber Netz im Hintergrund versuchen wir
-		# nur, wenn kein Cache vorliegt -> schnelle, offline-feste Scans.
+	if cached != null and not force:
+		# Cache-first: sofort nutzbar -> schnelle, offline-feste Scans.
 		return {"food": cached, "cached": true, "error": ""}
 
 	await _throttle()
@@ -80,26 +80,34 @@ static func parse_product(p: Dictionary) -> Food:
 	f.serving_g = _parse_grams(str(p.get("serving_size", "")))
 	f.image_url = str(p.get("image_front_url", ""))
 	f.source = "openfoodfacts"
-	f.kcal = _num(n, "energy-kcal_100g")
+	f.kcal = _nutri(n, "energy-kcal")
 	if f.kcal < 0.0:
 		# Fallback: Kilojoule
-		var kj := _num(n, "energy-kj_100g")
+		var kj := _nutri(n, "energy-kj")
 		if kj < 0.0:
-			kj = _num(n, "energy_100g")
+			kj = _nutri(n, "energy")
 		if kj >= 0.0:
 			f.kcal = kj / 4.184
-	f.protein = _num(n, "proteins_100g")
-	f.carbs = _num(n, "carbohydrates_100g")
-	f.fat = _num(n, "fat_100g")
-	f.saturated = _num(n, "saturated-fat_100g")
-	f.fiber = _num(n, "fiber_100g")
-	f.sugars = _num(n, "sugars_100g")
-	f.salt = _num(n, "salt_100g")
+	f.protein = _nutri(n, "proteins")
+	f.carbs = _nutri(n, "carbohydrates")
+	f.fat = _nutri(n, "fat")
+	f.saturated = _nutri(n, "saturated-fat")
+	f.fiber = _nutri(n, "fiber")
+	f.sugars = _nutri(n, "sugars")
+	f.salt = _nutri(n, "salt")
 	if f.salt < 0.0:
-		var sodium := _num(n, "sodium_100g")
+		var sodium := _nutri(n, "sodium")
 		if sodium >= 0.0:
 			f.salt = sodium * 2.5
 	return f
+
+## Naehrwert pro 100 g. Viele Produkte (z. B. tiefgekuehlte/gegarte Ware) fuehren
+## ihre Werte nur als "<base>_prepared_100g" - dann darauf zurueckfallen.
+static func _nutri(n: Dictionary, base: String) -> float:
+	var v := _num(n, base + "_100g")
+	if v >= 0.0:
+		return v
+	return _num(n, base + "_prepared_100g")
 
 static func _first_brand(brands: String) -> String:
 	var b := brands.strip_edges()

@@ -108,6 +108,24 @@ func _test_off_parsing() -> void:
 	var p2 := {"code": "1", "product_name": "X", "nutriments": {"energy-kj_100g": 418.4, "proteins_100g": 1.0, "carbohydrates_100g": 1.0, "fat_100g": 1.0}}
 	var f2 := OffClient.parse_product(p2)
 	_near("kj fallback", f2.kcal, 100.0, 0.5)
+	# "prepared"-Variante (z. B. Iglo Fischstaebchen: Werte nur als *_prepared_100g)
+	var p3 := {
+		"code": "4250241203524",
+		"product_name": "Fischstäbchen",
+		"brands": "IGLO",
+		"nutriments": {
+			"energy-kcal_prepared_100g": 204.666666666667,
+			"proteins_prepared_100g": 12.0,
+			"carbohydrates_prepared_100g": 18.0,
+			"fat_prepared_100g": 8.0,
+			"fiber_prepared_100g": 1.0,
+		},
+	}
+	var f3 := OffClient.parse_product(p3)
+	_near("prepared kcal", f3.kcal, 204.67, 0.1)
+	_ok("prepared has macros", f3.has_macros())
+	_near("prepared protein", f3.protein, 12.0, 0.01)
+	_near("prepared fiber", f3.fiber, 1.0, 0.01)
 	# leeres Produkt -> null
 	_ok("empty product -> null", OffClient.parse_product({}) == null)
 
