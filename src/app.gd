@@ -26,6 +26,9 @@ var _last_code_ms: int = 0
 var _shot_path: String = ""
 var _shot_screen: String = "live"
 var _shot_size: Vector2i = Vector2i.ZERO
+var debug_drag: Vector2 = Vector2.ZERO   # --drag=SPALTE,DY (Screenshot mitten in der Geste)
+var _suppressed: Dictionary = {}         # Barcode -> ms: kurz nicht wieder erkennen
+const SUPPRESS_MS := 5000
 var _anim_at: float = -1.0           # --anim-at=SEK: Animation mitten im Lauf fotografieren
 var _demo: bool = false
 var _no_demo: bool = false
@@ -94,6 +97,10 @@ func _parse_args() -> void:
 			var wh := a.substr(12).split("x")
 			if wh.size() == 2:
 				_shot_size = Vector2i(int(wh[0]), int(wh[1]))
+		elif a.begins_with("--drag="):
+			var cd := a.substr(7).split(",")
+			if cd.size() == 2:
+				debug_drag = Vector2(float(cd[0]), float(cd[1]))
 		elif a.begins_with("--anim-at="):
 			_anim_at = float(a.substr(10))
 		elif a == "--demo":
@@ -203,6 +210,9 @@ func on_scanned(code: String) -> void:
 		return
 	_last_code = code
 	_last_code_ms = now
+	# Gerade weggewischt und noch im Bild -> nicht sofort zurueckholen
+	if _suppressed.has(code) and now < int(_suppressed[code]):
+		return
 	# Bereits gepinnt oder aktuell -> ignorieren
 	if current != null and current.barcode == code:
 		return
@@ -252,7 +262,13 @@ func _show_current(food: Food) -> void:
 	current = food
 	scan_status = ""
 	_remember(food)
+	_warn_if_full()
 	refresh_live()
+
+## Bei voller Ablage wird ein neues Produkt nicht angezeigt -> kurz erklaeren.
+func _warn_if_full() -> void:
+	if tray.size() >= MAX_TRAY:
+		toast(I18n.t("full_swipe"))
 
 ## Food im Verlauf vermerken und (falls OFF) im Cache halten, damit der
 ## Verlauf es spaeter ohne Netz wieder aufloesen kann.
@@ -309,6 +325,7 @@ func set_current(food: Food) -> void:
 	current = food
 	scan_status = ""
 	_remember(food)
+	_warn_if_full()
 	refresh_live()
 
 func pin_current() -> void:
@@ -326,9 +343,35 @@ func pin_current() -> void:
 
 func unpin(index: int) -> void:
 	if index >= 0 and index < tray.size():
+		_suppress(tray[index].barcode)
 		tray.remove_at(index)
 		_save_tray()
 		refresh_live()
+
+func unpin_food(food: Food) -> void:
+	unpin(tray.find(food))
+
+## Aktuelles (ungepinntes) Produkt verwerfen.
+func dismiss_current() -> void:
+	if current == null:
+		return
+	_suppress(current.barcode)
+	current = null
+	scan_status = ""
+	refresh_live()
+
+func _suppress(code: String) -> void:
+	if code != "":
+		_suppressed[code] = Time.get_ticks_msec() + SUPPRESS_MS
+
+## Gesten-Hinweis: verschwindet, sobald die Geste einmal benutzt wurde.
+func learned(what: String) -> bool:
+	return bool(store.settings.get("learned_" + what, false))
+
+func mark_learned(what: String) -> void:
+	if not learned(what):
+		store.settings["learned_" + what] = true
+		store.save_settings()
 
 func add_pinned(food: Food) -> void:
 	if food == null:

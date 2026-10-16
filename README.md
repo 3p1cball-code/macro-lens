@@ -18,15 +18,15 @@ filter a crowded supermarket offering, fast.
 </p>
 
 The whole app is **one screen**: a live camera preview on top, the four charts
-below, and a **PIN** button that keeps the current product for side-by-side
-comparison (up to four). No menus, no scrolling.
+below. **Swipe a column down to pin it** for side-by-side comparison (up to
+four), **swipe it up to remove it**. No buttons for that, no menus, no scrolling.
 
 ## What it is
 
 A **measuring device**, not a diary. It scans continuously: hold a barcode into
-the top third of the screen and the four charts below update immediately. Tap
-**PIN** to keep the product; the next scan appears beside it — up to four
-products compared at once, each removable again.
+the top third of the screen and the four charts below update immediately. Swipe
+the column **down** to pin the product; the next scan appears beside it — up to
+four products compared at once. Swipe a column **up** to throw it out again.
 
 Four charts tell you everything the buying decision needs — and nothing is
 summarised into a score:
@@ -55,8 +55,8 @@ barcode sent to Open Food Facts.
 - **Continuous scan**: a live camera preview (CameraX) with an on-device ML Kit
   barcode decoder (bundled, no Play Services needed) — EAN-8/13, UPC-A/E,
   Code 128, Code 39, ITF. Hold a barcode in front of it and the charts update.
-- **PIN & compare**: keep the current product, scan the next one, compare up to
-  four side by side; the best value per chart is marked, each can be removed.
+- **Swipe to compare**: swipe down = pin, swipe up = remove; compare up to four
+  side by side, the best value per chart is marked.
 - **Unpackaged basics** (~65 staples: banana, oats, chicken, skyr, …) that can be
   added to the comparison and works fully offline.
 - **Name search** through Open Food Facts.
@@ -107,6 +107,7 @@ Run the unit tests for the pure metric logic:
 ```bash
 godot --headless --path . --script res://tests/test_metrics.gd
 godot --headless --path . --script res://tests/test_app.gd
+godot --headless --path . --script res://tests/test_gesture.gd
 ```
 
 Render screenshots of all screens (demo data):

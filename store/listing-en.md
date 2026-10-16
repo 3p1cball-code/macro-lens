@@ -28,14 +28,14 @@ Point the camera at a product, the barcode is scanned, and the four charts that 
 • Protein density — how much protein per 100 kcal?
 • Satiety — how filling per calorie? (estimate)
 
-Tap PIN and the next product appears beside it: up to four products side by side, with the best value per row marked. That is the point — the decision is made in the aisle, in seconds, without reading a label.
+Swipe the column down and the next product appears beside it: up to four products side by side, with the best value per row marked. That is the point — the decision is made in the aisle, in seconds, without reading a label.
 
 DELIBERATELY WITHOUT GRADES
 No Nutri-Score, no A–E grade, no score. Four pictures say more than a letter — and the decision stays yours. If a value is missing from the database it is not invented: that chart is simply left out.
 
 FEATURES
 • Continuous scan with a live camera — just hold the barcode in view
-• Compare up to four products side by side (PIN)
+• Compare up to four products side by side – swipe down to pin, swipe up to remove
 • Unpackaged basics list: around 65 staple foods, fully offline and directly comparable
 • Name search through Open Food Facts
 • History with search

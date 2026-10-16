@@ -42,7 +42,7 @@ Stand 15.10.2026. Schritt für Schritt. ✅ = schon erledigt (von mir vorbereite
 - [x] **AAB** gebaut, signiert: `build/macro-lens.aab` (≈59 MB, arm64-v8a + armeabi-v7a) — Play zerlegt das automatisch pro Gerät.
 - [x] **targetSdk 36** (Play-Vorgabe ab 31.08.2026), minSdk 24.
 - [x] **16-KB-Page-Size** aller nativen Bibliotheken geprüft (`libgodot_android.so`, `libbarhopper_v3.so`, …) → alle `0x4000`. Pflicht ab 1.11.2025 erfüllt.
-- [x] **Berechtigungen**: nur `CAMERA`, `INTERNET`, `ACCESS_NETWORK_STATE` — keine sensiblen.
+- [x] **Berechtigungen**: nur `CAMERA`, `INTERNET`, `ACCESS_NETWORK_STATE`, `VIBRATE` — keine sensiblen.
 - [x] **Store-Grafiken**: `store/icon-512.png`, `store/feature-graphic-1024x500.png`
 - [x] **Screenshots** (1080×1920, 9:16): `store/screenshots/de/…` und `…/en/…` (je 4)
 - [x] **Texte** DE/EN: `store/listing-de.md`, `store/listing-en.md`

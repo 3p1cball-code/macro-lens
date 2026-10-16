@@ -18,15 +18,16 @@ das übervolle Supermarktangebot schnell filtern.
 </p>
 
 Die ganze App ist **ein Screen**: oben die Live-Kameravorschau, darunter die
-vier Grafiken und ein **PIN**-Button, der das aktuelle Produkt für den direkten
-Vergleich behält (bis zu vier). Keine Menüs, kein Scrollen.
+vier Grafiken. **Spalte nach unten wischen = pinnen** für den direkten Vergleich
+(bis zu vier), **nach oben wischen = entfernen**. Keine Knöpfe dafür, keine Menüs,
+kein Scrollen.
 
 ## Was es ist
 
 Ein **Messgerät**, kein Tagebuch. Es scannt durchgehend: Barcode ins obere
-Drittel halten, die vier Grafiken darunter aktualisieren sich sofort. **PIN**
-behält das Produkt, der nächste Scan erscheint daneben — bis zu vier Produkte
-im Vergleich, jedes wieder entfernbar.
+Drittel halten, die vier Grafiken darunter aktualisieren sich sofort. Spalte
+**nach unten** wischen pinnt das Produkt, der nächste Scan erscheint daneben — bis
+zu vier Produkte im Vergleich. **Nach oben** wischen wirft eine Spalte wieder raus.
 
 Vier Grafiken sagen alles, was die Kaufentscheidung trägt — und nichts wird zu
 einer Note zusammengefasst:
@@ -56,8 +57,8 @@ Barcode an Open Food Facts.
 - **Dauerscan**: Live-Kameravorschau (CameraX) mit On-Device-ML-Kit-Barcode-Decoder
   (gebündelt, ohne Play-Services-Zwang) — EAN-8/13, UPC-A/E, Code 128, Code 39,
   ITF. Barcode reinhalten, Grafiken aktualisieren.
-- **PIN & Vergleich**: aktuelles Produkt behalten, nächstes scannen, bis zu vier
-  nebeneinander; Bestwert je Grafik markiert, jedes wieder entfernbar.
+- **Wischen & Vergleich**: nach unten = pinnen, nach oben = entfernen; bis zu vier
+  nebeneinander, Bestwert je Grafik markiert.
 - **Unverpackt-Liste** (~65 Grundnahrungsmittel: Banane, Haferflocken, Hähnchen,
   Skyr …), direkt in den Vergleich übernehmbar, vollständig offline.
 - **Namenssuche** über Open Food Facts.
@@ -108,6 +109,7 @@ Tests der reinen Rechenlogik:
 ```bash
 godot --headless --path . --script res://tests/test_metrics.gd
 godot --headless --path . --script res://tests/test_app.gd
+godot --headless --path . --script res://tests/test_gesture.gd
 ```
 
 Screenshots aller Screens (Demo-Daten):

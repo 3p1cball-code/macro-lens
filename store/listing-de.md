@@ -34,14 +34,14 @@ Kamera auf ein Produkt halten, der Barcode wird erkannt, und die vier entscheide
 • Eiweißdichte – wie viel Eiweiß pro 100 kcal?
 • Sättigung – wie füllend pro Kalorie? (Schätzung)
 
-Auf PIN tippen und das nächste Produkt erscheint daneben: bis zu vier Produkte direkt im Vergleich, der Bestwert je Zeile markiert. Das ist der eigentliche Trick – die Entscheidung fällt im Stehen, in Sekunden, ohne Etikett.
+Spalte nach unten wischen, und das nächste Produkt erscheint daneben: bis zu vier Produkte direkt im Vergleich, der Bestwert je Zeile markiert. Das ist der eigentliche Trick – die Entscheidung fällt im Stehen, in Sekunden, ohne Etikett.
 
 BEWUSST OHNE NOTEN
 Kein Nutri-Score, keine A–E-Note, keine Punktzahl. Vier Bilder sagen mehr als ein Buchstabe – und die Entscheidung bleibt bei dir. Fehlt ein Wert in der Datenbank, wird er nicht erfunden: die betroffene Grafik entfällt einfach.
 
 FUNKTIONEN
 • Dauerscan mit Live-Kamera – Barcode einfach ins Bild halten
-• Bis zu vier Produkte nebeneinander vergleichen (PIN)
+• Bis zu vier Produkte nebeneinander vergleichen – nach unten wischen pinnt, nach oben wischen entfernt
 • Unverpackt-Liste: rund 65 Grundnahrungsmittel, offline nutzbar und direkt vergleichbar
 • Namenssuche über Open Food Facts
 • Verlauf mit Suche
