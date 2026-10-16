@@ -3,47 +3,67 @@ package com.eyedea3d.macrolens
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
+import android.graphics.Paint
+import android.os.SystemClock
+import android.util.Size
 import android.view.Gravity
+import android.view.TextureView
+import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.FrameLayout
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
-import androidx.camera.core.ImageProxy
-import androidx.camera.core.Preview
-import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
+import androidx.camera.mlkit.vision.MlKitAnalyzer
+import androidx.camera.view.CameraController
+import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.Observer
 import com.google.mlkit.vision.barcode.BarcodeScanner
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
-import com.google.mlkit.vision.common.InputImage
 import org.godotengine.godot.Godot
 import org.godotengine.godot.plugin.GodotPlugin
 import org.godotengine.godot.plugin.SignalInfo
 import org.godotengine.godot.plugin.UsedByGodot
-import java.util.concurrent.Executors
 
 /**
  * Macro Lens Android-Plugin (Godot 4 v2).
  *
- * Dauer-Scanner: CameraX liefert eine native Vorschau (PreviewView, oben im
- * Bild) und einen Frame-Stream an den gebuendelten ML-Kit-Barcode-Scanner
- * (on-device, kein Play-Services-Zwang). Erkannte Codes gehen als Signal an
- * GDScript. Die Godot-UI zeichnet unterhalb der Vorschau.
+ * Dauer-Scanner: LifecycleCameraController liefert eine native Vorschau (oben im
+ * Bild) und einen Frame-Stream an den gebuendelten ML-Kit-Barcode-Scanner. Der
+ * MlKitAnalyzer rechnet die Barcode-Ecken direkt in Vorschau-Koordinaten um ->
+ * ein Overlay zeigt ein getracktes Viereck (orange erkannt, gruen gelesen).
+ * Die Vorschau wird nur in der ANZEIGE entsaettigt; die Analyse bekommt weiter
+ * das volle Farbbild.
  */
 class MacroLensPlugin(godot: Godot) : GodotPlugin(godot) {
 
     private val permRequestCode = 4711
-    private val analysisExecutor = Executors.newSingleThreadExecutor()
+    private val confirmFrames = 3
+    private val missTolerance = 3
 
+    private var container: FrameLayout? = null
     private var previewView: PreviewView? = null
-    private var cameraProvider: ProcessCameraProvider? = null
+    private var overlay: BarcodeOverlay? = null
+    private var controller: LifecycleCameraController? = null
     private var scanner: BarcodeScanner? = null
-    private var heightFraction: Float = 0.32f
+    private var streamObserver: Observer<PreviewView.StreamState>? = null
+    private var heightFraction: Float = 0.30f
     private var pendingStart = false
+
+    private var candidate: String? = null
+    private var candidateCount = 0
+    private var misses = 0
+    private var lastEmitted: String? = null
+    private var lastEmitAt = 0L
 
     override fun getPluginName(): String = "MacroLens"
 
@@ -74,7 +94,7 @@ class MacroLensPlugin(godot: Godot) : GodotPlugin(godot) {
     /** Startet (oder aktualisiert) die Kamera-Vorschau oben; fraction = Hoehe 0..1. */
     @UsedByGodot
     fun startPreview(fraction: Float) {
-        heightFraction = if (fraction in 0.10f..0.90f) fraction else 0.32f
+        heightFraction = if (fraction in 0.10f..0.90f) fraction else 0.30f
         val act = activity ?: return
         runOnUiThread {
             if (ContextCompat.checkSelfPermission(act, Manifest.permission.CAMERA)
@@ -106,6 +126,8 @@ class MacroLensPlugin(godot: Godot) : GodotPlugin(godot) {
         }
     }
 
+    // --- Layout ----------------------------------------------------------------
+
     private fun contentHeight(): Int {
         val act = activity ?: return 0
         val content = act.findViewById<ViewGroup>(android.R.id.content)
@@ -115,107 +137,189 @@ class MacroLensPlugin(godot: Godot) : GodotPlugin(godot) {
         return act.resources.displayMetrics.heightPixels
     }
 
-    private fun applyPreviewHeight() {
-        val pv = previewView ?: return
-        val lp = pv.layoutParams as? FrameLayout.LayoutParams ?: return
+    private fun applyHeight() {
+        val c = container ?: return
+        val lp = c.layoutParams as? FrameLayout.LayoutParams ?: return
         lp.height = (contentHeight() * heightFraction).toInt()
-        pv.layoutParams = lp
+        c.layoutParams = lp
+    }
+
+    /** Graustufen nur fuer die Anzeige (leicht abgedunkelt, damit das Viereck leuchtet). */
+    private fun monoPaint(dim: Float): Paint {
+        val cm = ColorMatrix().apply { setSaturation(0f) }
+        cm.postConcat(
+            ColorMatrix(
+                floatArrayOf(
+                    dim, 0f, 0f, 0f, 0f,
+                    0f, dim, 0f, 0f, 0f,
+                    0f, 0f, dim, 0f, 0f,
+                    0f, 0f, 0f, 1f, 0f
+                )
+            )
+        )
+        return Paint().apply { colorFilter = ColorMatrixColorFilter(cm) }
     }
 
     private fun startPreviewInternal() {
         val act = activity ?: return
+        val owner = act as? LifecycleOwner ?: run {
+            emitSignal("scan_failed", "lifecycle")
+            return
+        }
 
-        var pv = previewView
-        if (pv == null) {
-            pv = PreviewView(act).apply {
+        if (container == null) {
+            val c = FrameLayout(act)
+            val pv = PreviewView(act).apply {
                 implementationMode = PreviewView.ImplementationMode.COMPATIBLE
                 scaleType = PreviewView.ScaleType.FILL_CENTER
-                isClickable = false
-                isFocusable = false
             }
+            // Entsaettigung auf Anzeige-Ebene (Hardware-Layer mit Farbfilter).
+            pv.setLayerType(View.LAYER_TYPE_HARDWARE, monoPaint(0.85f))
+            val ov = BarcodeOverlay(act)
+            c.addView(pv, FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+            c.addView(ov, FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
             act.addContentView(
-                pv,
+                c,
                 FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     (contentHeight() * heightFraction).toInt(),
                     Gravity.TOP
                 )
             )
+            container = c
             previewView = pv
+            overlay = ov
+
+            // Zusaetzlich direkt am TextureView, sobald der Stream laeuft.
+            val obs = Observer<PreviewView.StreamState> { state ->
+                if (state == PreviewView.StreamState.STREAMING) {
+                    for (i in 0 until pv.childCount) {
+                        val child = pv.getChildAt(i)
+                        if (child is TextureView) {
+                            child.setLayerPaint(monoPaint(1.0f))
+                        }
+                    }
+                }
+            }
+            pv.previewStreamState.observe(owner, obs)
+            streamObserver = obs
         } else {
-            applyPreviewHeight()
+            applyHeight()
         }
 
-        // Hoehe aus dem Content-View (gleicher Koordinatenraum wie die Godot-Surface);
-        // erst nach dem Layout verfuegbar -> einmalig nachziehen.
+        // Hoehe nach dem ersten Layout nachziehen (Content-View hat dann seine Groesse).
         val content = act.findViewById<ViewGroup>(android.R.id.content)
         if (content != null && content.height == 0) {
             content.viewTreeObserver.addOnGlobalLayoutListener(
                 object : ViewTreeObserver.OnGlobalLayoutListener {
                     override fun onGlobalLayout() {
                         content.viewTreeObserver.removeOnGlobalLayoutListener(this)
-                        applyPreviewHeight()
+                        applyHeight()
                     }
                 }
             )
         }
 
-        val future = ProcessCameraProvider.getInstance(act)
-        future.addListener({
+        val pv = previewView ?: return
+        if (controller == null) {
             try {
-                val provider = future.get()
-                cameraProvider = provider
-                val preview = Preview.Builder().build().also {
-                    it.setSurfaceProvider(pv.surfaceProvider)
-                }
-                val analysis = ImageAnalysis.Builder()
-                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                val mainExec = ContextCompat.getMainExecutor(act)
+                val ctrl = LifecycleCameraController(act)
+                ctrl.cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+                ctrl.setEnabledUseCases(CameraController.IMAGE_ANALYSIS)
+                ctrl.imageAnalysisResolutionSelector = ResolutionSelector.Builder()
+                    .setResolutionStrategy(
+                        ResolutionStrategy(
+                            Size(1280, 720),
+                            ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
+                        )
+                    )
                     .build()
-                analysis.setAnalyzer(analysisExecutor) { proxy -> analyze(proxy) }
-                provider.unbindAll()
-                provider.bindToLifecycle(
-                    act as LifecycleOwner,
-                    CameraSelector.DEFAULT_BACK_CAMERA,
-                    preview,
-                    analysis
+                val sc = scanner()
+                ctrl.setImageAnalysisAnalyzer(
+                    mainExec,
+                    MlKitAnalyzer(
+                        listOf(sc),
+                        ImageAnalysis.COORDINATE_SYSTEM_VIEW_REFERENCED,
+                        mainExec
+                    ) { result ->
+                        onBarcodes(result?.getValue(sc))
+                    }
                 )
+                ctrl.bindToLifecycle(owner)
+                pv.controller = ctrl
+                controller = ctrl
                 emitSignal("preview_started")
             } catch (e: Exception) {
                 emitSignal("scan_failed", e.message ?: "camera")
             }
-        }, ContextCompat.getMainExecutor(act))
+        }
     }
 
-    private fun analyze(proxy: ImageProxy) {
-        val media = proxy.image
-        if (media == null) {
-            proxy.close()
+    /** Stabilitaetslogik: erst nach mehreren gleichen Frames gilt ein Code als gelesen. */
+    private fun onBarcodes(list: List<Barcode>?) {
+        val ov = overlay ?: return
+        if (list.isNullOrEmpty()) {
+            misses++
+            if (misses > missTolerance) {
+                candidateCount = 0
+            }
+            ov.lost()
             return
         }
-        val image = InputImage.fromMediaImage(media, proxy.imageInfo.rotationDegrees)
-        scanner().process(image)
-            .addOnSuccessListener { barcodes ->
-                for (b in barcodes) {
-                    val value = b.rawValue
-                    if (!value.isNullOrEmpty()) {
-                        emitSignal("barcode_scanned", value)
-                        break
-                    }
-                }
+        misses = 0
+        val b = list.maxByOrNull {
+            val r = it.boundingBox
+            if (r == null) 0 else r.width() * r.height()
+        } ?: return
+        val value = b.rawValue
+        if (!value.isNullOrEmpty()) {
+            if (value == candidate) {
+                candidateCount++
+            } else {
+                candidate = value
+                candidateCount = 1
             }
-            .addOnCompleteListener { proxy.close() }
+        } else {
+            candidateCount = 0
+        }
+        val confirmed = candidateCount >= confirmFrames
+        ov.update(b.cornerPoints, confirmed)
+        if (confirmed && value != null) {
+            val now = SystemClock.uptimeMillis()
+            if (value != lastEmitted || now - lastEmitAt > 2500L) {
+                lastEmitted = value
+                lastEmitAt = now
+                emitSignal("barcode_scanned", value)
+            }
+        }
     }
 
     private fun stopPreviewInternal() {
         try {
-            cameraProvider?.unbindAll()
+            controller?.unbind()
         } catch (_: Exception) {
         }
         val pv = previewView
-        if (pv != null) {
-            (pv.parent as? ViewGroup)?.removeView(pv)
+        val obs = streamObserver
+        if (pv != null && obs != null) {
+            pv.previewStreamState.removeObserver(obs)
         }
+        pv?.controller = null
+        val c = container
+        if (c != null) {
+            (c.parent as? ViewGroup)?.removeView(c)
+        }
+        controller = null
+        container = null
         previewView = null
+        overlay = null
+        streamObserver = null
+        candidate = null
+        candidateCount = 0
+        misses = 0
     }
 
     override fun onMainRequestPermissionsResult(
@@ -237,7 +341,6 @@ class MacroLensPlugin(godot: Godot) : GodotPlugin(godot) {
     override fun onMainDestroy() {
         stopPreviewInternal()
         scanner?.close()
-        analysisExecutor.shutdown()
         super.onMainDestroy()
     }
 }

@@ -11,6 +11,11 @@ var color_override: Color = Color(0, 0, 0, 0)
 var bar_h: float = 46.0
 var threshold: float = -1.0
 var threshold_key: String = "text"
+## 0..1 - Aufbau-Animation (Fuellung waechst)
+var progress: float = 1.0:
+	set(v):
+		progress = v
+		queue_redraw()
 
 func _ready() -> void:
 	custom_minimum_size = Vector2(0, bar_h)
@@ -37,7 +42,7 @@ func _draw() -> void:
 	draw_style_box(sb, track)
 	if value < 0.0:
 		return
-	var frac: float = clampf(value / maxv, 0.0, 1.0)
+	var frac: float = clampf(value / maxv, 0.0, 1.0) * clampf(progress, 0.0, 1.0)
 	var fw: float = maxf(frac * (w - 2.0), 0.0)
 	if fw > 0.5:
 		var fb := StyleBoxFlat.new()

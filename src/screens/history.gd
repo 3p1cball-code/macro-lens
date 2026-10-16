@@ -38,11 +38,11 @@ static func build(app: App) -> Control:
 			var kcal := ""
 			if food != null and food.has_kcal():
 				kcal = Metrics.format_num(food.kcal, 0) + " kcal"
-			var on_show := func(): app.set_current(food); app.goto("live")
+			var on_show := func(): app.pick(food, bc, false)
 			row.add_child(UI.list_row(name, _subtitle(e, food), kcal, on_show))
 			var add := UI.button("+", "ghost", 40)
 			add.custom_minimum_size = Vector2(96, 0)
-			add.pressed.connect(func(): app.add_pinned(food); app.goto("live"))
+			add.pressed.connect(func(): app.pick(food, bc, true))
 			row.add_child(add)
 			list.add_child(row)
 			shown += 1

@@ -8,6 +8,13 @@ var app: App
 var _matrix: VBoxContainer
 var _pin_btn: Button
 
+# Animationszustand: welche Spalten (Schluessel -> gepinnt?) standen zuletzt da.
+var _prev_cols: Dictionary = {}
+var _first_build := true
+var _col_nodes: Array = []        # je Spalte die Zellen (fuer Ausblenden/Puls)
+var _anim_cols: Array = []        # je Spalte: neu aufbauen?
+var _busy := false                # Ausblenden laeuft (Doppeltipp-Schutz)
+
 func _ready() -> void:
 	if anchor_right == 0.0:
 		set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -108,12 +115,6 @@ func _top_bar() -> Control:
 
 func _bottom_bar() -> Control:
 	var h := UI.hbox(12)
-	_pin_btn = UI.button("PIN", "primary", UI.FS_BODY)
-	_pin_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_pin_btn.custom_minimum_size = Vector2(0, 108)
-	_pin_btn.pressed.connect(func(): app.pin_current())
-	h.add_child(_pin_btn)
-
 	var share := _mini(I18n.t("share"), func(): app.share_comparison())
 	share.custom_minimum_size = Vector2(0, 108)
 	h.add_child(share)
@@ -121,6 +122,13 @@ func _bottom_bar() -> Control:
 	var unp := _mini(I18n.t("unpackaged") + "  +", func(): app.goto("generics"))
 	unp.custom_minimum_size = Vector2(0, 108)
 	h.add_child(unp)
+
+	# PIN rechts: liegt unter dem Daumen der rechten Hand.
+	_pin_btn = UI.button("PIN", "primary", UI.FS_BODY)
+	_pin_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_pin_btn.custom_minimum_size = Vector2(0, 108)
+	_pin_btn.pressed.connect(func(): app.pin_current())
+	h.add_child(_pin_btn)
 	return h
 
 func _mini(text: String, cb: Callable) -> Button:
@@ -135,22 +143,52 @@ func _columns() -> Array:
 	var cols: Array = []
 	for i in range(app.tray.size()):
 		cols.append({"food": app.tray[i], "pinned": true, "index": i})
-	if app.current != null and app.tray.size() < App.MAX_TRAY:
+	if app.current != null and app.tray.size() < App.MAX_TRAY and not app.tray_has(app.current):
 		cols.append({"food": app.current, "pinned": false, "index": -1})
 	return cols
+
+static func _key(f: Food) -> String:
+	return f.barcode if f.barcode != "" else "n:" + f.name
 
 func refresh() -> void:
 	if _matrix == null:
 		return
 	for c in _matrix.get_children():
+		_matrix.remove_child(c)
 		c.queue_free()
 	var cols: Array = _columns()
+	# Nur neue Spalten bauen sich auf; frisch gepinnte pulsieren kurz.
+	var now_cols: Dictionary = {}
+	var pulse_cols: Array = []
+	_anim_cols = []
+	for i in cols.size():
+		var k := _key(cols[i]["food"])
+		now_cols[k] = cols[i]["pinned"]
+		var is_new: bool = _first_build or not _prev_cols.has(k)
+		_anim_cols.append(is_new)
+		if not is_new and cols[i]["pinned"] and not bool(_prev_cols[k]):
+			pulse_cols.append(i)
+	var cols_changed := now_cols.keys() != _prev_cols.keys()
+	_prev_cols = now_cols
+	_first_build = false
+	_col_nodes = []
+	for i in cols.size():
+		_col_nodes.append([])
+
 	if not cols.is_empty() and app.scan_status != "" and app.scan_status != "loading":
-		_matrix.add_child(_status_banner())
+		var banner := _status_banner()
+		_matrix.add_child(banner)
+		Anim.pop_in(banner, 0.0, Anim.POP, 0.97)
 	if cols.is_empty():
-		_matrix.add_child(_empty_state())
+		var es := _empty_state()
+		_matrix.add_child(es)
+		Anim.pop_in(es, 0.0, Anim.POP, 0.97)
 	else:
 		_build_rows(cols)
+		for i in pulse_cols:
+			Anim.pulse(_col_nodes[i])
+	if cols_changed and _pin_btn != null:
+		Anim.pulse([_pin_btn])
 
 	if _pin_btn == null:
 		return
@@ -294,13 +332,13 @@ func _build_rows(cols: Array) -> void:
 	pad.custom_minimum_size = Vector2(150, 0)
 	names.add_child(pad)
 	for i in range(n):
-		names.add_child(_head_cell(cols[i], name_size))
+		names.add_child(_cell(i, 0, _head_cell(cols[i], name_size)))
 	_matrix.add_child(names)
 
 	# Makro-Donut (Prozente daneben; kompakt: Eiweiss-Prozent im Kreis)
 	var drows: Array = []
 	for i in range(n):
-		drows.append(_donut_cell(evals[i], donut_h, show_legend))
+		drows.append(_cell(i, 1, _donut_cell(evals[i], donut_h, show_legend, _delay(i, 1), _anim_cols[i])))
 	_matrix.add_child(_row("lbl_macros", drows))
 	_matrix.add_child(UI.hline("line"))
 
@@ -309,7 +347,7 @@ func _build_rows(cols: Array) -> void:
 	for i in range(n):
 		var ev = evals[i]
 		var col: Color = UI.c("faint") if not ev.density_ok else UI.scale_color(Metrics.density_t(ev.density))
-		krows.append(_bar_cell(Metrics.format_num(ev.density, 0) if ev.density_ok else "–", I18n.t("kcal_100g"), ev.density if ev.density_ok else -1.0, 500.0, col, num_size, show_best and i == best_kcal))
+		krows.append(_cell(i, 2, _bar_cell(ev.density if ev.density_ok else -1.0, 0, I18n.t("kcal_100g"), 500.0, col, num_size, show_best and i == best_kcal, i, 2)))
 	_matrix.add_child(_row("lbl_density", krows))
 	_matrix.add_child(UI.hline("line"))
 
@@ -318,7 +356,7 @@ func _build_rows(cols: Array) -> void:
 	for i in range(n):
 		var ev = evals[i]
 		var col: Color = UI.c("faint") if not ev.protein_density_ok else UI.scale_color(Metrics.protein_t(ev.protein_density))
-		prows.append(_bar_cell(Metrics.format_num(ev.protein_density, 1) if ev.protein_density_ok else "–", I18n.t("unit_g_100kcal"), ev.protein_density if ev.protein_density_ok else -1.0, 25.0, col, num_size, show_best and i == best_pd))
+		prows.append(_cell(i, 3, _bar_cell(ev.protein_density if ev.protein_density_ok else -1.0, 1, I18n.t("unit_g_100kcal"), 25.0, col, num_size, show_best and i == best_pd, i, 3)))
 	_matrix.add_child(_row("lbl_protein", prows))
 	_matrix.add_child(UI.hline("line"))
 
@@ -328,10 +366,25 @@ func _build_rows(cols: Array) -> void:
 		var ev = evals[i]
 		var sc: float = float(ev.fullness.get("score", -1)) if ev.fullness_ok else -1.0
 		var col: Color = UI.c("faint") if sc < 0.0 else UI.scale_color(Metrics.satiety_t(sc))
-		srows.append(_bar_cell(str(int(sc)) if sc >= 0.0 else "–", I18n.t("of_100"), sc, 100.0, col, num_size, show_best and i == best_sat))
+		srows.append(_cell(i, 4, _bar_cell(sc, 0, I18n.t("of_100"), 100.0, col, num_size, show_best and i == best_sat, i, 4)))
 	_matrix.add_child(_row("lbl_satiety", srows))
 
-func _donut_cell(ev: Dictionary, h: int, show_legend: bool) -> Control:
+## Aufbau-Verzoegerung: Zeile fuer Zeile, Spalten leicht versetzt.
+func _delay(col: int, row: int) -> float:
+	var rank := 0
+	for j in range(col):
+		if _anim_cols[j]:
+			rank += 1
+	return row * Anim.STAGGER + rank * Anim.STAGGER * 0.6
+
+## Zelle der Spalte zuordnen und (bei neuer Spalte) einblenden.
+func _cell(col: int, row: int, c: Control) -> Control:
+	_col_nodes[col].append(c)
+	if _anim_cols[col]:
+		Anim.pop_in(c, _delay(col, row))
+	return c
+
+func _donut_cell(ev: Dictionary, h: int, show_legend: bool, delay: float, animate: bool) -> Control:
 	var cell := UI.hbox(18 if show_legend else 0)
 	cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if show_legend:
@@ -343,6 +396,8 @@ func _donut_cell(ev: Dictionary, h: int, show_legend: bool) -> Control:
 	if ev.split_ok:
 		d.set_split(ev.split)
 	cell.add_child(d)
+	if animate:
+		Anim.sweep(d, "progress", delay + 0.05)
 	if show_legend and ev.split_ok:
 		var legend := UI.vbox(12)
 		legend.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -399,7 +454,7 @@ func _head_cell(col: Dictionary, name_size: int) -> Control:
 		var x := UI.button("×", "ghost", 34)
 		x.custom_minimum_size = Vector2(56, 56)
 		x.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-		x.pressed.connect(func(): app.unpin(idx))
+		x.pressed.connect(func(): _unpin_animated(idx))
 		top.add_child(x)
 	cell.add_child(top)
 	var sub: String = food.brand if food.brand != "" else food.group
@@ -414,10 +469,12 @@ func _head_cell(col: Dictionary, name_size: int) -> Control:
 	cell.add_child(subrow)
 	return cell
 
-func _bar_cell(value: String, unit: String, raw: float, maxv: float, col: Color, num_size: int, best: bool) -> Control:
+func _bar_cell(raw: float, decimals: int, unit: String, maxv: float, col: Color, num_size: int,
+		best: bool, ci: int, row: int) -> Control:
 	var cell := UI.vbox(6)
 	cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	cell.add_child(UI.big_number_colored(value, col, num_size))
+	var num := UI.big_number_colored(Metrics.format_num(raw, decimals) if raw >= 0.0 else "–", col, num_size)
+	cell.add_child(num)
 	cell.add_child(UI.micro(unit))
 	var bar := MeterBar.new()
 	bar.bar_h = 26.0
@@ -425,9 +482,28 @@ func _bar_cell(value: String, unit: String, raw: float, maxv: float, col: Color,
 	cell.add_child(bar)
 	if best:
 		var h := UI.hbox(0)
-		h.add_child(UI.chip(I18n.t("best"), "good"))
+		var chip := UI.chip(I18n.t("best"), "good")
+		h.add_child(chip)
 		cell.add_child(h)
+	if _anim_cols[ci] and raw >= 0.0:
+		var d := _delay(ci, row) + 0.05
+		Anim.count_up(num, raw, decimals, d)
+		Anim.sweep(bar, "progress", d)
+		if best:
+			Anim.pop_in(cell.get_child(cell.get_child_count() - 1), d + Anim.BUILD * 0.8, Anim.POP, 0.6)
 	return cell
+
+## Spalte ausblenden, danach wirklich entfernen.
+func _unpin_animated(idx: int) -> void:
+	if _busy:
+		return
+	if idx < 0 or idx >= _col_nodes.size():
+		app.unpin(idx)
+		return
+	_busy = true
+	Anim.pop_out(_col_nodes[idx], func():
+		_busy = false
+		app.unpin(idx))
 
 static func _best(values: Array, lower: bool) -> int:
 	var idx := -1

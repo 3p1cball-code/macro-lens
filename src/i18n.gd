@@ -22,6 +22,7 @@ const STRINGS := {
 	"empty_tray": ["Nichts in der Ablage. Scanne oder suche ein Produkt.", "Nothing in the tray. Scan or search a product."],
 	"tray": ["ABLAGE", "TRAY"],
 	"full": ["Ablage voll (max. 4)", "Tray full (max. 4)"],
+	"already_pinned": ["Schon gepinnt", "Already pinned"],
 	"add_to_tray": ["IN ABLAGE", "TO TRAY"],
 	"discard": ["VERWERFEN", "DISCARD"],
 	"remove": ["ENTFERNEN", "REMOVE"],
@@ -97,11 +98,11 @@ const STRINGS := {
 	"theme_light": ["Hell", "Light"],
 	"language": ["Sprache", "Language"],
 
-	"about_text": ["Ein Messgerät, kein Tagebuch.", "A measuring device, not a diary."],
+	"about_text": ["Schneller die bessere Wahl im Supermarkt.", "Faster, better choices in the supermarket."],
 	"contact": ["Kontakt", "Contact"],
 	"about_body": [
-		"Kamera auf ein Produkt halten, Barcode erkannt, vier Grafiken.\nKeine Konten, keine Cloud, keine Werbung, keine Telemetrie.\nSättigung ist eine Schätzung.",
-		"Point the camera at a product, barcode scanned, four charts.\nNo accounts, no cloud, no ads, no telemetry.\nSatiety is an estimate."],
+		"Für alle, die bewusst einkaufen: Das Angebot im Supermarkt ist riesig, die Zeit am Regal kurz. Macro Lens filtert schnell – Barcode scannen, vier Grafiken sehen, bis zu vier Produkte vergleichen.\nBewusst ohne Mengen und ohne Tracking: ein Messgerät, kein Tagebuch.\nKeine Konten, keine Cloud, keine Werbung, keine Telemetrie. Sättigung ist eine Schätzung.",
+		"For health-conscious shoppers: supermarket shelves are crowded, time in the aisle is short. Macro Lens filters fast – scan a barcode, see four charts, compare up to four products.\nDeliberately no quantities and no tracking: a measuring device, not a diary.\nNo accounts, no cloud, no ads, no telemetry. Satiety is an estimate."],
 	"attribution": ["Daten: Open Food Facts (ODbL) · Generika: USDA FoodData Central", "Data: Open Food Facts (ODbL) · Basics: USDA FoodData Central"],
 
 	"scan_hint": ["Barcode scannen", "Scan barcode"],

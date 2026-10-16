@@ -3,9 +3,13 @@
 **Point the camera at a product → barcode scanned → four charts.**
 No nutrition table to read, no letter grades, no accounts, no cloud.
 
-Macro Lens is a small Android app for the moment *before* you buy: you're standing
-in the aisle with two yoghurts in your hand, and you want to know which one is the
-better pick — in seconds, without reading labels.
+Macro Lens is a small Android app for health-conscious people who want to make
+**faster, better buying decisions in the supermarket**. The shelves are crowded,
+time in the aisle is short: you're standing there with two yoghurts in your hand
+and want to know which one is the better pick — in seconds, without reading labels.
+
+It deliberately does **not** track quantities, meals or days. It does one thing:
+filter a crowded supermarket offering, fast.
 
 <p align="center">
   <img src="screenshots/live.png" width="31%" alt="Continuous scan with a live camera preview and up to four compared products">
@@ -102,6 +106,7 @@ Run the unit tests for the pure metric logic:
 
 ```bash
 godot --headless --path . --script res://tests/test_metrics.gd
+godot --headless --path . --script res://tests/test_app.gd
 ```
 
 Render screenshots of all screens (demo data):

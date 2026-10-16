@@ -7,14 +7,19 @@ Macro Lens
 
 ## Short description (max. 80)
 ```
+Faster, better supermarket choices: scan, compare, decide.
+```
+(58 characters)
+
+Previous:
+```
 Four charts instead of a nutrition table: scan, compare, decide.
 ```
-(61 characters)
 
 ## Full description (max. 4000)
 
 ```
-Macro Lens is a measuring device for the moment before you buy — not a diary.
+For health-conscious shoppers: Macro Lens helps you make faster, better choices in the supermarket. The shelves are crowded, time in the aisle is short — the app filters in seconds. Deliberately no quantities and no tracking: a measuring device, not a diary.
 
 Point the camera at a product, the barcode is scanned, and the four charts that matter are right there:
 

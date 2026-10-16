@@ -3,9 +3,13 @@
 **Kamera auf ein Produkt → Barcode erkannt → vier Grafiken.**
 Keine Nährwerttabelle zum Lesen, keine Noten, keine Konten, keine Cloud.
 
-Macro Lens ist eine kleine Android-App für den Moment *vor* dem Kauf: Man steht
-mit zwei Joghurts im Gang und will in Sekunden wissen, welcher die bessere Wahl
-ist — ohne Etikett, ohne Rechnerei.
+Macro Lens ist eine kleine Android-App für gesundheitsbewusste Menschen, die im
+Supermarkt **schneller bessere Kaufentscheidungen** treffen wollen. Das Angebot ist
+riesig, die Zeit am Regal kurz: Man steht mit zwei Joghurts im Gang und will in
+Sekunden wissen, welcher die bessere Wahl ist — ohne Etikett, ohne Rechnerei.
+
+Bewusst **ohne** Mengen, Mahlzeiten oder Tagesbilanz. Die App macht genau eins:
+das übervolle Supermarktangebot schnell filtern.
 
 <p align="center">
   <img src="screenshots/live.png" width="31%" alt="Dauerscan mit Live-Kamera und bis zu vier verglichenen Produkten">
@@ -103,6 +107,7 @@ Tests der reinen Rechenlogik:
 
 ```bash
 godot --headless --path . --script res://tests/test_metrics.gd
+godot --headless --path . --script res://tests/test_app.gd
 ```
 
 Screenshots aller Screens (Demo-Daten):

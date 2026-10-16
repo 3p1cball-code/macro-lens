@@ -7,7 +7,9 @@ static func build(app: App) -> Control:
 
 	var card := UI.card(34)
 	var v := UI.vbox(20)
-	v.add_child(UI.label(I18n.t("about_text"), UI.FS_TITLE, "text", 2))
+	var title := UI.label(I18n.t("about_text"), UI.FS_TITLE, "text", 2)
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(title)
 	var body := UI.label(I18n.t("about_body"), UI.FS_BODY, "muted")
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(body)

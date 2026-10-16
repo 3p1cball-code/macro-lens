@@ -38,11 +38,11 @@ static func build(app: App) -> Control:
 			r.mouse_filter = Control.MOUSE_FILTER_PASS
 			var kcal: String = Metrics.format_num(f.kcal, 0) + " kcal" if f.has_kcal() else ""
 			var sub: String = f.brand if f.brand != "" else ""
-			var on_show := func(): app.set_current(f); app.goto("live")
+			var on_show := func(): app.pick(f, f.barcode, false)
 			r.add_child(UI.list_row(f.display_name(I18n.lang), sub, kcal, on_show))
 			var add := UI.button("+", "ghost", 40)
 			add.custom_minimum_size = Vector2(96, 0)
-			add.pressed.connect(func(): app.add_pinned(f); app.goto("live"))
+			add.pressed.connect(func(): app.pick(f, f.barcode, true))
 			r.add_child(add)
 			list.add_child(r)
 

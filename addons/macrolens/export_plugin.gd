@@ -31,6 +31,7 @@ class AndroidExportPlugin extends EditorExportPlugin:
 			"androidx.camera:camera-camera2:1.4.1",
 			"androidx.camera:camera-lifecycle:1.4.1",
 			"androidx.camera:camera-view:1.4.1",
+			"androidx.camera:camera-mlkit-vision:1.4.1",
 			"com.google.mlkit:barcode-scanning:17.3.0",
 		])
 

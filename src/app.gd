@@ -26,6 +26,7 @@ var _last_code_ms: int = 0
 var _shot_path: String = ""
 var _shot_screen: String = "live"
 var _shot_size: Vector2i = Vector2i.ZERO
+var _anim_at: float = -1.0           # --anim-at=SEK: Animation mitten im Lauf fotografieren
 var _demo: bool = false
 var _no_demo: bool = false
 var _single: bool = false
@@ -47,6 +48,7 @@ func _ready() -> void:
 	_load_tray()
 	_connect_plugin()
 	_parse_args()
+	Anim.enabled = _shot_path == "" or _anim_at >= 0.0
 	if _demo:
 		_demo_data()
 	if _shot_path != "":
@@ -92,6 +94,8 @@ func _parse_args() -> void:
 			var wh := a.substr(12).split("x")
 			if wh.size() == 2:
 				_shot_size = Vector2i(int(wh[0]), int(wh[1]))
+		elif a.begins_with("--anim-at="):
+			_anim_at = float(a.substr(10))
 		elif a == "--demo":
 			_demo = true
 		elif a == "--single":
@@ -117,7 +121,7 @@ func _capture_shot() -> void:
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 	await get_tree().process_frame
 	await get_tree().process_frame
-	await get_tree().create_timer(0.6).timeout
+	await get_tree().create_timer(_anim_at if _anim_at >= 0.0 else 0.6).timeout
 	var img: Image
 	if _shot_size != Vector2i.ZERO:
 		# Exakte Groesse unabhaengig von der Fenstergroesse (fuer Store-Assets).
@@ -167,6 +171,7 @@ func goto(name: String) -> void:
 			node = fallback
 	_current_screen = node
 	add_child(node)
+	Anim.fade_in(node, 0.16)
 	if name == "live":
 		start_preview()
 	else:
@@ -242,19 +247,71 @@ func retry_scan() -> void:
 func _show_current(food: Food) -> void:
 	current = food
 	scan_status = ""
+	_remember(food)
+	refresh_live()
+
+## Food im Verlauf vermerken und (falls OFF) im Cache halten, damit der
+## Verlauf es spaeter ohne Netz wieder aufloesen kann.
+func _remember(food: Food) -> void:
+	if food == null:
+		return
+	if food.barcode != "" and not food.barcode.begins_with("generic:") \
+			and food.source != "user" and store.get_cached(food.barcode) == null:
+		store.put_cache(food)
+		store.save_cache()
 	store.add_history(food)
 	store.save_history()
-	refresh_live()
+
+## Food zu einem Verlaufs-Barcode: Generika, Cache, eigene Eintraege.
+func resolve_barcode(code: String) -> Food:
+	if code == "":
+		return null
+	if code.begins_with("generic:"):
+		for f in generics.all():
+			if f.barcode == code:
+				return f
+		return null
+	var c := store.get_cached(code)
+	if c != null:
+		return c
+	if store.user_foods.has(code):
+		return Food.from_dict(store.user_foods[code])
+	return null
+
+## Aus einer Liste gewaehlt (Verlauf/Suche/Generika): anzeigen oder pinnen.
+## Ist das Food nicht aufloesbar, wird der Barcode wie ein Scan nachgeladen.
+func pick(food: Food, code: String, pin: bool) -> void:
+	goto("live")
+	if food == null:
+		if code == "" or code.begins_with("generic:"):
+			toast(I18n.t("not_found"))
+			return
+		if pin and tray.size() >= MAX_TRAY:
+			toast(I18n.t("full"))
+			return
+		_last_code = ""
+		await on_scanned(code)
+		if pin and current != null and current.barcode == code:
+			pin_current()
+		return
+	if pin:
+		add_pinned(food)
+	else:
+		set_current(food)
 
 func set_current(food: Food) -> void:
 	if food == null:
 		return
 	current = food
 	scan_status = ""
+	_remember(food)
 	refresh_live()
 
 func pin_current() -> void:
-	if current == null or tray.size() >= MAX_TRAY:
+	if current == null:
+		return
+	if tray.size() >= MAX_TRAY:
+		toast(I18n.t("full"))
 		return
 	if not tray_has(current):
 		tray.append(current)
@@ -270,13 +327,59 @@ func unpin(index: int) -> void:
 		refresh_live()
 
 func add_pinned(food: Food) -> void:
-	if food == null or tray.size() >= MAX_TRAY or tray_has(food):
+	if food == null:
+		return
+	if tray_has(food):
+		toast(I18n.t("already_pinned"))
+		return
+	if tray.size() >= MAX_TRAY:
+		toast(I18n.t("full"))
 		return
 	tray.append(food)
 	_save_tray()
-	store.add_history(food)
-	store.save_history()
+	# Dasselbe Produkt nicht zusaetzlich als "neue" Spalte zeigen.
+	if current != null and _same(current, food):
+		current = null
+	scan_status = ""
+	_remember(food)
 	refresh_live()
+
+static func _same(a: Food, b: Food) -> bool:
+	if a.barcode != "" or b.barcode != "":
+		return a.barcode == b.barcode
+	return a.name == b.name
+
+## Kurze Meldung unten im Bild, blendet sich selbst aus.
+func toast(text: String) -> void:
+	var old := get_node_or_null("Toast")
+	if old != null:
+		old.name = "ToastOld"
+		old.queue_free()
+	var panel := PanelContainer.new()
+	panel.name = "Toast"
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = UI.c("text")
+	sb.content_margin_left = 34
+	sb.content_margin_right = 34
+	sb.content_margin_top = 22
+	sb.content_margin_bottom = 22
+	panel.add_theme_stylebox_override("panel", sb)
+	var l := UI.label(text.to_upper(), UI.FS_MICRO, "bg", 2)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	panel.add_child(l)
+	panel.anchor_left = 0.5
+	panel.anchor_right = 0.5
+	panel.anchor_top = 0.80
+	panel.anchor_bottom = 0.80
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	add_child(panel)
+	Anim.pop_in(panel, 0.0, 0.22)
+	var tw := panel.create_tween()
+	tw.tween_interval(1.8)
+	tw.tween_property(panel, "modulate:a", 0.0, 0.25).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	tw.tween_callback(panel.queue_free)
 
 func tray_has(food: Food) -> bool:
 	if food == null:

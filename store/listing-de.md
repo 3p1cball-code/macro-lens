@@ -7,9 +7,14 @@ Macro Lens
 
 ## Kurzbeschreibung (max. 80)
 ```
+Im Supermarkt schneller besser wählen: scannen, vergleichen, entscheiden.
+```
+(73 Zeichen)
+
+Bisher:
+```
 Vier Grafiken statt Nährwerttabelle: scannen, vergleichen, entscheiden.
 ```
-(72 Zeichen)
 
 Alternative:
 ```
@@ -20,7 +25,7 @@ Barcode scannen, vier Grafiken sehen, bis zu vier Produkte vergleichen.
 ## Vollständige Beschreibung (max. 4000)
 
 ```
-Macro Lens ist ein Messgerät für den Moment vor dem Kauf – kein Tagebuch.
+Für alle, die bewusst einkaufen: Macro Lens hilft dir, im Supermarkt schneller die bessere Wahl zu treffen. Das Angebot ist riesig, die Zeit am Regal kurz – die App filtert in Sekunden. Bewusst ohne Mengen und ohne Tracking: ein Messgerät, kein Tagebuch.
 
 Kamera auf ein Produkt halten, der Barcode wird erkannt, und die vier entscheidenden Grafiken stehen sofort da:
 

@@ -204,6 +204,7 @@ static func button(text: String, kind: String = "primary", font_size: int = FS_B
 		b.add_theme_stylebox_override("hover", _btn(c("surface2"), 4, true))
 		b.add_theme_stylebox_override("pressed", _btn(c("surface2"), 4, true))
 		b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	Anim.snappy(b)
 	return b
 
 static func _btn(bg: Color, radius: int, bordered: bool = false) -> StyleBoxFlat:
