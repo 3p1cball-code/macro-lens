@@ -141,7 +141,7 @@ it can be verified against real labels without running the app.
 ## Status
 
 Early but usable. The scanning → lookup → four charts → comparison path works
-end to end. Planned next: portion switching, share as image, Play Store build
+end to end. Planned next: portion switching, Play Store build
 (AAB) with an optional supporter option.
 
 ## License

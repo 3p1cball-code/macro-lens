@@ -142,7 +142,7 @@ gegen echte Etiketten prüfen, ohne die App zu starten.
 ## Stand
 
 Früh, aber benutzbar. Der Weg Scannen → Lookup → vier Grafiken → Vergleich
-funktioniert durchgängig. Geplant: Mengen-Umschalter, Teilen als Bild,
+funktioniert durchgängig. Geplant: Mengen-Umschalter,
 Play-Store-Build (AAB) mit optionaler Unterstützer-Option.
 
 ## Lizenz

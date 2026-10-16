@@ -187,7 +187,11 @@ func refresh_live() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		if not is_live():
-			goto("live")
+			go_back()
+
+## Zurueck: Unterseiten der Einstellungen fuehren dorthin, alles andere zum Scan.
+func go_back() -> void:
+	goto("settings" if _current_name == "about" else "live")
 
 # --- Scan-Flow -------------------------------------------------------------
 
@@ -409,32 +413,6 @@ func _load_tray() -> void:
 		for d in arr:
 			if d is Dictionary:
 				tray.append(Food.from_dict(d))
-
-# --- Teilen ----------------------------------------------------------------
-
-func share_text(text: String) -> void:
-	if has_scanner():
-		Engine.get_singleton("MacroLens").call("shareText", text)
-	else:
-		DisplayServer.clipboard_set(text)
-
-func share_comparison() -> void:
-	var cols: Array = []
-	for f in tray:
-		cols.append(f)
-	var lines: Array = ["Macro Lens"]
-	for f in cols:
-		var ev := Metrics.evaluate(f)
-		var parts: Array = [f.display_name(I18n.lang)]
-		if ev.density_ok:
-			parts.append(Metrics.format_num(ev.density, 0) + " kcal/100 g")
-		if ev.protein_density_ok:
-			parts.append(Metrics.format_num(ev.protein_density, 1) + " g " + I18n.t("protein"))
-		if ev.fullness_ok:
-			parts.append(I18n.t("chart_satiety") + " " + str(ev.fullness.get("score", 0)) + "/100")
-		lines.append("• " + " · ".join(parts))
-	lines.append(I18n.t("attribution"))
-	share_text("\n".join(lines))
 
 # --- Manuelle Eingabe ------------------------------------------------------
 

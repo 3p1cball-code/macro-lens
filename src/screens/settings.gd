@@ -13,6 +13,15 @@ static func build(app: App) -> Control:
 		["Deutsch", func(): app.set_lang("de"), I18n.lang == "de"],
 		["English", func(): app.set_lang("en"), I18n.lang == "en"],
 	]))
+	var about := UI.card(30)
+	var av := UI.vbox(16)
+	av.add_child(UI.micro(I18n.t("about")))
+	var ab := UI.button(I18n.t("about_link") + "  ›", "ghost")
+	ab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ab.pressed.connect(func(): app.goto("about"))
+	av.add_child(ab)
+	about.add_child(av)
+	content.add_child(about)
 	content.add_child(UI.label(I18n.t("attribution"), UI.FS_MICRO, "faint"))
 	return root_c
 

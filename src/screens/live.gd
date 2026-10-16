@@ -115,10 +115,6 @@ func _top_bar() -> Control:
 
 func _bottom_bar() -> Control:
 	var h := UI.hbox(12)
-	var share := _mini(I18n.t("share"), func(): app.share_comparison())
-	share.custom_minimum_size = Vector2(0, 108)
-	h.add_child(share)
-
 	var unp := _mini(I18n.t("unpackaged") + "  +", func(): app.goto("generics"))
 	unp.custom_minimum_size = Vector2(0, 108)
 	h.add_child(unp)
