@@ -35,6 +35,39 @@ func save_cache() -> void: _write(CACHE_PATH, cache)
 func save_history() -> void: _write(HISTORY_PATH, history)
 func save_user_foods() -> void: _write(USER_FOODS_PATH, user_foods)
 
+# --- Sparsames Schreiben ----------------------------------------------------
+
+## Scan-Daten aendern sich oft; statt bei jedem Scan die komplette JSON neu zu
+## schreiben, sammeln wir ~1,5 s und schreiben dann einmal. Flush passiert
+## zusaetzlich bei App-Pause/Exit (App._notification/_exit_tree).
+const WRITE_DELAY := 1.5
+
+var _pending: Dictionary = {}
+var _flush_scheduled := false
+
+func queue_cache() -> void: _schedule("cache")
+func queue_history() -> void: _schedule("history")
+
+func _schedule(what: String) -> void:
+	_pending[what] = true
+	if _flush_scheduled:
+		return
+	_flush_scheduled = true
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree == null:
+		flush_pending()
+		return
+	await tree.create_timer(WRITE_DELAY).timeout
+	_flush_scheduled = false
+	flush_pending()
+
+func flush_pending() -> void:
+	if _pending.has("cache"):
+		_write(CACHE_PATH, cache)
+	if _pending.has("history"):
+		_write(HISTORY_PATH, history)
+	_pending.clear()
+
 # --- Cache ------------------------------------------------------------------
 
 func get_cached(barcode: String) -> Food:

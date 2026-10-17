@@ -55,8 +55,8 @@ Barcode an Open Food Facts.
 ## Funktionen
 
 - **Dauerscan**: Live-Kameravorschau (CameraX) mit On-Device-ML-Kit-Barcode-Decoder
-  (gebündelt, ohne Play-Services-Zwang) — EAN-8/13, UPC-A/E, Code 128, Code 39,
-  ITF. Barcode reinhalten, Grafiken aktualisieren.
+  (gebündelt, ohne Play-Services-Zwang) — EAN-8/13, UPC-A/E, Code 128.
+  Barcode reinhalten, Grafiken aktualisieren.
 - **Wischen & Vergleich**: nach unten = pinnen, nach oben = entfernen; bis zu vier
   nebeneinander, Bestwert je Grafik markiert.
 - **Unverpackt-Liste** (~65 Grundnahrungsmittel: Banane, Haferflocken, Hähnchen,
@@ -104,12 +104,13 @@ cp export_presets.cfg.example export_presets.cfg   # Keystore + Passwort eintrag
 tools/build_apk.sh
 ```
 
-Tests der reinen Rechenlogik:
+Tests der Rechenlogik, des App-Zustands und des OFF-Clients (ohne Netz):
 
 ```bash
 godot --headless --path . --script res://tests/test_metrics.gd
 godot --headless --path . --script res://tests/test_app.gd
 godot --headless --path . --script res://tests/test_gesture.gd
+godot --headless --path . --script res://tests/test_off.gd
 ```
 
 Screenshots aller Screens (Demo-Daten):

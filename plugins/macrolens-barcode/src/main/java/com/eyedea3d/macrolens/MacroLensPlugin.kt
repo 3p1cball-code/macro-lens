@@ -16,6 +16,7 @@ import android.view.ViewTreeObserver
 import android.widget.FrameLayout
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.mlkit.vision.MlKitAnalyzer
@@ -33,6 +34,8 @@ import org.godotengine.godot.Godot
 import org.godotengine.godot.plugin.GodotPlugin
 import org.godotengine.godot.plugin.SignalInfo
 import org.godotengine.godot.plugin.UsedByGodot
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 /**
  * Macro Lens Android-Plugin (Godot 4 v2).
@@ -47,8 +50,10 @@ import org.godotengine.godot.plugin.UsedByGodot
 class MacroLensPlugin(godot: Godot) : GodotPlugin(godot) {
 
     private val permRequestCode = 4711
-    private val confirmFrames = 3
+    private val confirmFrames = 2
     private val missTolerance = 3
+    private val throttleIntervalMs = 100L   // ~10 fps, solange derselbe Code bestaetigt ist
+    private val detectIntervalMs = 400L     // Praefetch-Meldungen drosseln
 
     private var container: FrameLayout? = null
     private var previewView: PreviewView? = null
@@ -56,6 +61,7 @@ class MacroLensPlugin(godot: Godot) : GodotPlugin(godot) {
     private var controller: LifecycleCameraController? = null
     private var scanner: BarcodeScanner? = null
     private var streamObserver: Observer<PreviewView.StreamState>? = null
+    private var analysisExecutor: ExecutorService? = null
     private var heightFraction: Float = 0.30f
     private var pendingStart = false
 
@@ -64,11 +70,23 @@ class MacroLensPlugin(godot: Godot) : GodotPlugin(godot) {
     private var misses = 0
     private var lastEmitted: String? = null
     private var lastEmitAt = 0L
+    private var lastDetected: String? = null
+    private var lastDetectAt = 0L
+
+    /**
+     * Sparmodus fuer die Analyse: true, sobald ein Code bestaetigt im Bild
+     * liegt. Dann reicht ~10 fps (Overlay bleibt bei 100 ms < 260 ms sichtbar).
+     * Sobald kein Code mehr erkannt wird oder ein anderer auftaucht, wird
+     * wieder mit voller Kamerarate gesucht - die Ersterkennung bleibt schnell.
+     */
+    @Volatile
+    private var throttleAnalysis = false
 
     override fun getPluginName(): String = "MacroLens"
 
     override fun getPluginSignals(): MutableSet<SignalInfo> = mutableSetOf(
         SignalInfo("barcode_scanned", String::class.java),
+        SignalInfo("barcode_detected", String::class.java),
         SignalInfo("scan_failed", String::class.java),
         SignalInfo("preview_started"),
     )
@@ -76,14 +94,14 @@ class MacroLensPlugin(godot: Godot) : GodotPlugin(godot) {
     private fun scanner(): BarcodeScanner {
         if (scanner == null) {
             val opts = BarcodeScannerOptions.Builder()
+                // Nur Formate, die auf Lebensmitteln vorkommen. ITF/CODE_39
+                // kosten Rechenzeit und produzieren Fehlkandidaten.
                 .setBarcodeFormats(
                     Barcode.FORMAT_EAN_13,
                     Barcode.FORMAT_EAN_8,
                     Barcode.FORMAT_UPC_A,
                     Barcode.FORMAT_UPC_E,
-                    Barcode.FORMAT_CODE_128,
-                    Barcode.FORMAT_CODE_39,
-                    Barcode.FORMAT_ITF
+                    Barcode.FORMAT_CODE_128
                 )
                 .build()
             scanner = BarcodeScanning.getClient(opts)
@@ -229,30 +247,59 @@ class MacroLensPlugin(godot: Godot) : GodotPlugin(godot) {
                 val ctrl = LifecycleCameraController(act)
                 ctrl.cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
                 ctrl.setEnabledUseCases(CameraController.IMAGE_ANALYSIS)
+                // Vorschau: nur so viele Pixel, wie die Flaeche oben zeigt.
+                ctrl.previewResolutionSelector = ResolutionSelector.Builder()
+                    .setResolutionStrategy(
+                        ResolutionStrategy(
+                            Size(1280, 720),
+                            ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER
+                        )
+                    )
+                    .build()
+                // Analyse bleibt 1280x720: Reichweite fuer kleine/ferne Codes
+                // geht vor Pixelsparen (der Scan soll nicht langsamer werden).
                 ctrl.imageAnalysisResolutionSelector = ResolutionSelector.Builder()
                     .setResolutionStrategy(
                         ResolutionStrategy(
                             Size(1280, 720),
-                            ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
+                            ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER
                         )
                     )
                     .build()
-                val sc = scanner()
-                ctrl.setImageAnalysisAnalyzer(
-                    mainExec,
-                    MlKitAnalyzer(
-                        listOf(sc),
-                        ImageAnalysis.COORDINATE_SYSTEM_VIEW_REFERENCED,
-                        mainExec
-                    ) { result ->
-                        onBarcodes(result?.getValue(sc))
-                    }
+                ctrl.setImageAnalysisBackpressureStrategy(
+                    ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
                 )
+                val sc = scanner()
+                val mlkit = MlKitAnalyzer(
+                    listOf(sc),
+                    ImageAnalysis.COORDINATE_SYSTEM_VIEW_REFERENCED,
+                    mainExec
+                ) { result ->
+                    onBarcodes(result?.getValue(sc))
+                }
+                // Analyse ausserhalb des Main-Threads; gedrosselt wird nur,
+                // wenn derselbe Code bereits bestaetigt im Bild liegt.
+                val exec = Executors.newSingleThreadExecutor()
+                analysisExecutor = exec
+                ctrl.setImageAnalysisAnalyzer(exec, object : ImageAnalysis.Analyzer {
+                    private var lastAnalyzed = 0L
+                    override fun analyze(imageProxy: ImageProxy) {
+                        val now = SystemClock.uptimeMillis()
+                        if (throttleAnalysis && now - lastAnalyzed < throttleIntervalMs) {
+                            imageProxy.close()
+                            return
+                        }
+                        lastAnalyzed = now
+                        mlkit.analyze(imageProxy)
+                    }
+                })
                 ctrl.bindToLifecycle(owner)
                 pv.controller = ctrl
                 controller = ctrl
                 emitSignal("preview_started")
             } catch (e: Exception) {
+                analysisExecutor?.shutdown()
+                analysisExecutor = null
                 emitSignal("scan_failed", e.message ?: "camera")
             }
         }
@@ -266,6 +313,7 @@ class MacroLensPlugin(godot: Godot) : GodotPlugin(godot) {
             if (misses > missTolerance) {
                 candidateCount = 0
             }
+            throttleAnalysis = false   // wieder mit voller Rate suchen
             ov.lost()
             return
         }
@@ -287,13 +335,25 @@ class MacroLensPlugin(godot: Godot) : GodotPlugin(godot) {
         }
         val confirmed = candidateCount >= confirmFrames
         ov.update(b.cornerPoints, confirmed)
+        val now = SystemClock.uptimeMillis()
+        if (value != null && !confirmed && value != lastDetected &&
+            now - lastDetectAt > detectIntervalMs
+        ) {
+            // Erster Sichtkontakt: Godot kann das Produkt schon vorab laden.
+            lastDetected = value
+            lastDetectAt = now
+            emitSignal("barcode_detected", value)
+        }
         if (confirmed && value != null) {
-            val now = SystemClock.uptimeMillis()
             if (value != lastEmitted || now - lastEmitAt > 2500L) {
                 lastEmitted = value
                 lastEmitAt = now
                 emitSignal("barcode_scanned", value)
             }
+            // Derselbe Code liegt bestaetigt im Bild -> ~10 fps reichen.
+            throttleAnalysis = true
+        } else {
+            throttleAnalysis = false
         }
     }
 
@@ -317,6 +377,11 @@ class MacroLensPlugin(godot: Godot) : GodotPlugin(godot) {
         previewView = null
         overlay = null
         streamObserver = null
+        throttleAnalysis = false
+        lastDetected = null
+        lastDetectAt = 0L
+        analysisExecutor?.shutdown()
+        analysisExecutor = null
         candidate = null
         candidateCount = 0
         misses = 0

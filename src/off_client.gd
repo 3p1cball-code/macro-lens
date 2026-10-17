@@ -6,14 +6,20 @@ class_name OffClient
 ## ohne Netz geraten; bei Fehlern faellt der Aufrufer auf den Cache zurueck.
 
 const USER_AGENT := "MacroLens/0.1 (alexander.riedel@eyedea3d.com)"
-const FIELDS := "code,product_name,product_name_de,product_name_en,generic_name,brands,quantity,serving_size,nutriments,image_front_url,completeness"
+# image_front_url/completeness werden nie angezeigt -> nicht mitladen (Bytes/Zeit).
+const FIELDS := "code,product_name,product_name_de,product_name_en,generic_name,brands,quantity,serving_size,nutriments"
 const PRODUCT_URL := "https://world.openfoodfacts.org/api/v2/product/%s?fields=" + FIELDS
 const SEARCH_URL := "https://world.openfoodfacts.org/cgi/search.pl?action=process&json=1&search_simple=1&page_size=20&fields=" + FIELDS + "&search_terms=%s"
+const MAX_RESULTS := 32
+
+signal fetch_done(code: String)
 
 var store: Store
 var _last_request_ms: int = 0
 var _min_gap_ms: int = 1300   # ~ vertraeglich gegenueber ~15/min Limit
 var _backoff_ms: int = 0
+var _inflight: Dictionary = {}   # code -> true (eine Anfrage pro Produkt)
+var _results: Dictionary = {}    # code -> letztes Ergebnis (fuer Mitwarter)
 
 func _ready() -> void:
 	pass
@@ -28,6 +34,32 @@ func fetch_product(barcode: String, force: bool = false) -> Dictionary:
 		# Cache-first: sofort nutzbar -> schnelle, offline-feste Scans.
 		return {"food": cached, "cached": true, "error": ""}
 
+	# Laeuft fuer diesen Code schon eine Anfrage (Prefetch)? Mitbenutzen statt
+	# doppelt laden - spart eine TLS-Verbindung und Wartezeit.
+	if _inflight.has(barcode):
+		while _inflight.has(barcode):
+			await fetch_done
+		return _results.get(barcode, {"food": null, "cached": false, "error": "net"})
+
+	_inflight[barcode] = true
+	var out: Dictionary = await _fetch_remote(barcode)
+	_inflight.erase(barcode)
+	_results[barcode] = out
+	while _results.size() > MAX_RESULTS:
+		_results.erase(_results.keys()[0])
+	fetch_done.emit(barcode)
+	return out
+
+## Vorab-Abruf beim ersten Sichtkontakt (vor der Bestaetigung). Das Ergebnis
+## landet im Cache; die spaetere Bestaetigung findet es dort sofort.
+func prefetch(barcode: String) -> void:
+	if barcode == "" or store == null:
+		return
+	if store.get_cached(barcode) != null:
+		return
+	await fetch_product(barcode, false)
+
+func _fetch_remote(barcode: String) -> Dictionary:
 	await _throttle()
 	var res := await _http_get(PRODUCT_URL % barcode)
 	if res.get("code", 0) == 429 or res.get("code", 0) == 503:
@@ -41,7 +73,7 @@ func fetch_product(barcode: String, force: bool = false) -> Dictionary:
 		var f := parse_product(parsed.get("product", {}))
 		if f != null and store:
 			store.put_cache(f)
-			store.save_cache()
+			store.queue_cache()
 		return {"food": f, "cached": false, "error": ""}
 	return {"food": null, "cached": false, "error": "notfound"}
 
@@ -170,6 +202,7 @@ func _throttle() -> void:
 func _http_get(url: String) -> Dictionary:
 	var req := HTTPRequest.new()
 	req.timeout = 12.0
+	req.accept_gzip = true
 	add_child(req)
 	var headers := PackedStringArray([
 		"User-Agent: " + USER_AGENT,

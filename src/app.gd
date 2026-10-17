@@ -52,6 +52,9 @@ func _ready() -> void:
 	_connect_plugin()
 	_parse_args()
 	Anim.enabled = _shot_path == "" or _anim_at >= 0.0
+	# Kamera oeffnen, waehrend die Oberflaeche entsteht (spart Startzeit).
+	if _shot_path == "" and _shot_screen == "live" and not _demo:
+		start_preview()
 	if _demo:
 		_demo_data()
 	if _shot_path != "":
@@ -68,6 +71,8 @@ func _connect_plugin() -> void:
 	var ml: Object = Engine.get_singleton("MacroLens")
 	if ml.has_signal("barcode_scanned") and not ml.is_connected("barcode_scanned", on_scanned):
 		ml.connect("barcode_scanned", on_scanned)
+	if ml.has_signal("barcode_detected") and not ml.is_connected("barcode_detected", on_detected):
+		ml.connect("barcode_detected", on_detected)
 	if ml.has_signal("scan_failed") and not ml.is_connected("scan_failed", _on_scan_failed):
 		ml.connect("scan_failed", _on_scan_failed)
 
@@ -84,6 +89,15 @@ func stop_preview() -> void:
 
 func _on_scan_failed(_msg: String) -> void:
 	pass
+
+## Erster Sichtkontakt eines Barcodes (vor der Bestaetigung): Produkt schon
+## vorab laden, damit die Diagramme bei der Bestaetigung meist sofort stehen.
+func on_detected(code: String) -> void:
+	if code.strip_edges() == "" or not is_live():
+		return
+	if store == null or store.get_cached(code) != null:
+		return
+	off.prefetch(code)
 
 # --- Navigation ------------------------------------------------------------
 
@@ -195,6 +209,13 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		if not is_live():
 			go_back()
+	elif what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST:
+		if store != null:
+			store.flush_pending()
+
+func _exit_tree() -> void:
+	if store != null:
+		store.flush_pending()
 
 ## Zurueck: Unterseiten der Einstellungen fuehren dorthin, alles andere zum Scan.
 func go_back() -> void:
@@ -278,9 +299,9 @@ func _remember(food: Food) -> void:
 	if food.barcode != "" and not food.barcode.begins_with("generic:") \
 			and food.source != "user" and store.get_cached(food.barcode) == null:
 		store.put_cache(food)
-		store.save_cache()
+		store.queue_cache()
 	store.add_history(food)
-	store.save_history()
+	store.queue_history()
 
 ## Food zu einem Verlaufs-Barcode: Generika, Cache, eigene Eintraege.
 func resolve_barcode(code: String) -> Food:

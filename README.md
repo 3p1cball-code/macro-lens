@@ -54,7 +54,7 @@ barcode sent to Open Food Facts.
 
 - **Continuous scan**: a live camera preview (CameraX) with an on-device ML Kit
   barcode decoder (bundled, no Play Services needed) — EAN-8/13, UPC-A/E,
-  Code 128, Code 39, ITF. Hold a barcode in front of it and the charts update.
+  Code 128. Hold a barcode in front of it and the charts update.
 - **Swipe to compare**: swipe down = pin, swipe up = remove; compare up to four
   side by side, the best value per chart is marked.
 - **Unpackaged basics** (~65 staples: banana, oats, chicken, skyr, …) that can be
@@ -108,6 +108,7 @@ Run the unit tests for the pure metric logic:
 godot --headless --path . --script res://tests/test_metrics.gd
 godot --headless --path . --script res://tests/test_app.gd
 godot --headless --path . --script res://tests/test_gesture.gd
+godot --headless --path . --script res://tests/test_off.gd
 ```
 
 Render screenshots of all screens (demo data):
