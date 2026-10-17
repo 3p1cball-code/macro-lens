@@ -6,6 +6,13 @@ class_name Generics
 
 const PATH := "res://data/generics.json"
 
+## Gruppen der Liste (deutsch -> englisch).
+const GROUP_EN := {
+	"Obst": "Fruit", "Gemüse": "Vegetables", "Getreide": "Grains", "Hülsenfrüchte": "Legumes",
+	"Protein": "Protein", "Milchprodukte": "Dairy", "Nüsse": "Nuts", "Fette": "Fats",
+	"Getränke": "Drinks", "Sonstiges": "Other",
+}
+
 var items: Array = []        # Array[Food]
 
 func load_default() -> void:
@@ -25,6 +32,7 @@ func _to_food(raw: Dictionary) -> Food:
 	f.name = str(raw.get("de", ""))
 	f.name_en = str(raw.get("en", ""))
 	f.group = str(raw.get("g", ""))
+	f.group_en = str(raw.get("g_en", GROUP_EN.get(f.group, f.group)))
 	f.source = "generic"
 	f.barcode = "generic:" + f.name_en.to_lower().replace(" ", "_")
 	f.kcal = float(raw.get("kcal", -1))
@@ -41,7 +49,8 @@ func search(query: String) -> Array:
 	var q := query.strip_edges().to_lower()
 	var out: Array = []
 	for f in items:
-		if q == "" or f.name.to_lower().contains(q) or f.name_en.to_lower().contains(q) or f.group.to_lower().contains(q):
+		if q == "" or f.name.to_lower().contains(q) or f.name_en.to_lower().contains(q) \
+				or f.group.to_lower().contains(q) or f.group_en.to_lower().contains(q):
 			out.append(f)
 	return out
 

@@ -26,3 +26,6 @@ release.pw
 
 # Diagnose-/Handy-Screenshots nicht ins Projekt
 Screenshot_*
+
+# Rohfotos (Quelle fuer assets/about/portrait.jpg) nicht ins Repo/APK
+threema-*

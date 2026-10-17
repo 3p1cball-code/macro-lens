@@ -10,10 +10,12 @@ const NO_VALUE := -1.0
 var barcode: String = ""
 var name: String = ""
 var name_en: String = ""           # englischer Name (Generika), sonst leer
-var group: String = ""             # Kategorie (Generika)
+var group: String = ""             # Kategorie (Generika), deutsch
+var group_en: String = ""          # Kategorie englisch
 var brand: String = ""
 var quantity: String = ""          # z. B. "500 g" (Freitext vom Etikett)
-var serving_g: float = NO_VALUE     # Portionsgroesse in g, falls bekannt
+var serving_g: float = NO_VALUE     # Portionsgroesse in g (bzw. ml), falls bekannt
+var serving_text: String = ""       # Portion als Freitext, z. B. "1 Portion (30 g)"
 
 var kcal: float = NO_VALUE          # energy-kcal_100g
 var protein: float = NO_VALUE       # proteins_100g
@@ -42,6 +44,67 @@ func has_fiber() -> bool: return fiber >= 0.0
 func has_macros() -> bool:
 	return has_protein() and has_carbs() and has_fat()
 
+# --- Mengen (Portion / Packung) ---------------------------------------------
+
+## Liest die erste Mengenangabe mit Einheit aus einem Etikett-Text.
+## "500 g" -> 500 g, "2 x 125 g" -> 250 g, "0,5 l" -> 500 ml, "6 x 0,33 l" -> 1980 ml,
+## "1 Portion (30 g)" -> 30 g. Rueckgabe {ok, value, unit("g"|"ml")}.
+static func parse_amount(text: String) -> Dictionary:
+	var t := text.strip_edges().to_lower().replace(",", ".")
+	if t == "":
+		return {"ok": false, "value": -1.0, "unit": ""}
+	var re := RegEx.new()
+	re.compile("(?:(\\d+)\\s*[x×*]\\s*)?(\\d+(?:\\.\\d+)?)\\s*(kg|mg|g|ml|cl|dl|l)(?![a-z])")
+	var m := re.search(t)
+	if m == null:
+		return {"ok": false, "value": -1.0, "unit": ""}
+	var count := 1.0
+	if m.get_string(1) != "":
+		count = float(m.get_string(1))
+	var v := float(m.get_string(2)) * count
+	var unit := "g"
+	var u := m.get_string(3)
+	if u == "kg":
+		v *= 1000.0
+	elif u == "mg":
+		v /= 1000.0
+	elif u == "l":
+		v *= 1000.0
+	elif u == "dl":
+		v *= 100.0
+	elif u == "cl":
+		v *= 10.0
+	if u in ["l", "dl", "cl", "ml"]:
+		unit = "ml"
+	if v <= 0.0:
+		return {"ok": false, "value": -1.0, "unit": ""}
+	return {"ok": true, "value": v, "unit": unit}
+
+## Portionsgroesse: bevorzugt der Freitext (mit Einheit), sonst serving_g als Gramm.
+func portion_amount() -> Dictionary:
+	var a := parse_amount(serving_text)
+	if a["ok"]:
+		return a
+	if serving_g > 0.0:
+		return {"ok": true, "value": serving_g, "unit": "g"}
+	return {"ok": false, "value": -1.0, "unit": ""}
+
+## Packungsinhalt aus dem Etikett ("500 g", "1,5 l", "4 x 125 g").
+func pack_amount() -> Dictionary:
+	return parse_amount(quantity)
+
+## Getraenk = Inhalt in ml/l (dann gelten Getraenke-Schwellen, und Naehrwerte
+## von Open Food Facts beziehen sich auf 100 ml).
+func is_drink() -> bool:
+	if pack_amount()["unit"] == "ml":
+		return true
+	return portion_amount()["unit"] == "ml"
+
+func display_group(lang: String = "de") -> String:
+	if lang == "en" and group_en.strip_edges() != "":
+		return group_en
+	return group
+
 func display_name(lang: String = "de") -> String:
 	if lang == "en" and name_en.strip_edges() != "":
 		return name_en.strip_edges()
@@ -53,9 +116,9 @@ func display_name(lang: String = "de") -> String:
 
 func to_dict() -> Dictionary:
 	return {
-		"barcode": barcode, "name": name, "name_en": name_en, "group": group,
+		"barcode": barcode, "name": name, "name_en": name_en, "group": group, "group_en": group_en,
 		"brand": brand, "quantity": quantity,
-		"serving_g": serving_g, "kcal": kcal, "protein": protein, "carbs": carbs,
+		"serving_g": serving_g, "serving_text": serving_text, "kcal": kcal, "protein": protein, "carbs": carbs,
 		"fat": fat, "saturated": saturated, "fiber": fiber, "sugars": sugars,
 		"salt": salt, "source": source, "image_url": image_url,
 		"updated_ms": updated_ms,
@@ -67,9 +130,11 @@ static func from_dict(d: Dictionary) -> Food:
 	f.name = str(d.get("name", ""))
 	f.name_en = str(d.get("name_en", ""))
 	f.group = str(d.get("group", ""))
+	f.group_en = str(d.get("group_en", ""))
 	f.brand = str(d.get("brand", ""))
 	f.quantity = str(d.get("quantity", ""))
 	f.serving_g = float(d.get("serving_g", NO_VALUE))
+	f.serving_text = str(d.get("serving_text", ""))
 	f.kcal = float(d.get("kcal", NO_VALUE))
 	f.protein = float(d.get("protein", NO_VALUE))
 	f.carbs = float(d.get("carbs", NO_VALUE))

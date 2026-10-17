@@ -1,8 +1,9 @@
 extends Control
 class_name LiveScreen
 
-## Dauerscan: Kamera oben (native Vorschau), darunter die vier Grafiken des
-## aktuellen Produkts und der gepinnten Vergleichsspalten. Kein Scrollen.
+## Dauerscan: Kamera oben (native Vorschau), darunter die Bausteine (Layout,
+## Standard: vier Grafiken) fuer das aktuelle Produkt und die gepinnten
+## Vergleichsspalten. Kein Scrollen - die Bausteine teilen sich die Hoehe.
 ## Bedienung per Geste: Spalte nach UNTEN wischen = pinnen,
 ## nach OBEN wischen = entfernen (gepinnt oder aktuell).
 
@@ -16,6 +17,11 @@ var _first_build := true
 var _col_nodes: Array = []        # je Spalte die Slide-Huellen ihrer Zellen
 var _anim_cols: Array = []        # je Spalte: neu aufbauen?
 var _busy := false                # Wegfliegen laeuft (Doppelgeste-Schutz)
+var _mid: Control = null          # Mittelteil (Hoehe = Platz fuer die Bausteine)
+var _banner_shown := false
+var _hint_shown := false
+var _plan_sig := ""               # Groessenplan des letzten Aufbaus
+var _built_ms := 0
 
 # Wischgesten (Einheiten: Basis-Viewport 1080x1920)
 const SWIPE_START := 22.0         # ab hier ist es ein Wischen (nicht Tippen)
@@ -73,12 +79,6 @@ func _build_camera() -> void:
 	sb.set_corner_radius_all(8)
 	panel.add_theme_stylebox_override("panel", sb)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var inner := CenterContainer.new()
-	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var hint := UI.micro(I18n.t("scan_hint"), "text")
-	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	inner.add_child(hint)
-	panel.add_child(inner)
 	m.add_child(panel)
 	cam.add_child(m)
 
@@ -95,16 +95,24 @@ func _build_body() -> void:
 	body.add_child(UI.hline("accent", 3))
 	body.add_child(Shell.pad(_top_bar(), Shell.PAD, 8, Shell.PAD, 6))
 
-	var mid := VBoxContainer.new()
+	# Mittelteil: feste Flaeche (Hoehe haengt NICHT vom Inhalt ab - sonst
+	# Rueckkopplung mit dem Hoehenbudget der Bausteine). Inhalt mittig,
+	# Ueberstand wird abgeschnitten (gewischte Spalten verschwinden an der Kante).
+	var mid := Control.new()
 	mid.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	mid.clip_contents = true   # gewischte Spalten verschwinden an der Kante
-	mid.add_theme_constant_override("separation", 0)
-	mid.add_child(_vspacer())
+	mid.clip_contents = true
+	mid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var inner := VBoxContainer.new()
+	inner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	inner.alignment = BoxContainer.ALIGNMENT_CENTER
+	inner.add_theme_constant_override("separation", 0)
+	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var mp := Shell.pad(_matrix_host(), Shell.PAD, 4, Shell.PAD, 4)
-	mp.size_flags_vertical = Control.SIZE_FILL
-	mid.add_child(mp)
-	mid.add_child(_vspacer())
+	inner.add_child(mp)
+	mid.add_child(inner)
 	body.add_child(mid)
+	_mid = mid
+	mid.resized.connect(_on_mid_resized)
 
 	body.add_child(UI.hline("line", 1))
 	body.add_child(Shell.pad(_bottom_bar(), Shell.PAD, 12, Shell.PAD, 22))
@@ -132,7 +140,21 @@ func _top_bar() -> Control:
 	h.add_child(_mini(I18n.t("search"), func(): app.goto("search")))
 	h.add_child(_mini(I18n.t("history"), func(): app.goto("history")))
 	h.add_child(_mini(I18n.t("settings"), func(): app.goto("settings")))
+	if app != null and app.show_quit():
+		h.add_child(_quit_button())
 	return h
+
+## X oben rechts (nur wenn in den Einstellungen aktiviert): App sofort beenden.
+func _quit_button() -> Button:
+	var b := UI.button("", "ghost", UI.FS_MICRO)
+	b.custom_minimum_size = Vector2(76, 76)
+	b.tooltip_text = I18n.t("quit_app")
+	var x := CloseGlyph.new()
+	x.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	x.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	b.add_child(x)
+	b.pressed.connect(func(): app.quit_app())
+	return b
 
 func _bottom_bar() -> Control:
 	var h := UI.hbox(12)
@@ -188,29 +210,57 @@ func refresh() -> void:
 	for i in cols.size():
 		_col_nodes.append([])
 
-	if not cols.is_empty() and app.scan_status != "" and app.scan_status != "loading":
+	_banner_shown = not cols.is_empty() and app.scan_status != "" and app.scan_status != "loading"
+	if _banner_shown:
 		var banner := _status_banner()
 		_matrix.add_child(banner)
 		Anim.pop_in(banner, 0.0, Anim.POP, 0.97)
 	if cols.is_empty():
+		_hint_shown = false
 		var es := _empty_state()
 		_matrix.add_child(es)
 		Anim.pop_in(es, 0.0, Anim.POP, 0.97)
 	else:
+		var hint := _gesture_hint(cols)
+		_hint_shown = hint != null
 		_build_rows(cols)
 		for i in pulse_cols:
 			Anim.pulse(_col_nodes[i])
 		_settle_drop(cols)
-		var hint := _gesture_hint(cols)
 		if hint != null:
 			_matrix.add_child(hint)
 	_drop = {}
+	_plan_sig = _plan_signature()
+	_built_ms = Time.get_ticks_msec()
+
+## Groessenplan als Text: aendert er sich (z. B. erstes Layout, Drehen,
+## Einblendung der Navigationsleiste), wird neu aufgebaut.
+func _plan_signature() -> String:
+	if _cols.is_empty():
+		return "empty"
+	var per := BlockView.budget(_blocks_avail(), app.layout.size())
+	var parts: PackedStringArray = []
+	for e in app.layout:
+		parts.append(JSON.stringify(BlockView.sizes(Blocks.kind(e["id"]), _cols.size(), per, e.get("options", {}))))
+	return "|".join(parts)
+
+func _on_mid_resized() -> void:
+	if _matrix == null or _cols.is_empty() or _g_active or _busy:
+		return
+	if _plan_signature() == _plan_sig:
+		return
+	# Direkt nach dem Aufbau (erstes Layout): Aufbau-Animation nicht verschlucken.
+	if Time.get_ticks_msec() - _built_ms < 400:
+		_first_build = true
+	refresh.call_deferred()
 
 ## Kompaktes Banner ueber der Matrix, wenn ein Scan keine brauchbaren Daten
 ## geliefert hat (die gepinnten Produkte bleiben dabei sichtbar).
 func _status_banner() -> Control:
 	var status: String = app.scan_status
 	var text := ""
+	if status == "nonfood":
+		return _nonfood_card(true)
 	match status:
 		"nodata":
 			var nm := app.last_missing.display_name(I18n.lang) if app.last_missing != null else ""
@@ -246,133 +296,155 @@ func _status_banner() -> Control:
 
 func _empty_state() -> Control:
 	var status: String = app.scan_status
-	var title := I18n.t("scan_hint")
-	var body := I18n.t("attribution")
-	var actions := false
+	if status == "":
+		return _big_message(I18n.t("empty_live"))
+	if status == "loading":
+		return _big_message(I18n.t("loading"))
+	if status == "nonfood":
+		return _nonfood_card(false)
+	var title := ""
+	var body := ""
 	var can_search := false
 	var can_retry := false
 	match status:
-		"loading":
-			title = I18n.t("loading")
-			body = ""
 		"notfound":
 			title = I18n.t("not_found")
 			body = I18n.t("barcode") + ": " + app.last_scan_code
-			actions = true
 			can_retry = true
 		"nodata":
 			title = I18n.t("no_data")
 			var nm := app.last_missing.display_name(I18n.lang) if app.last_missing != null else ""
 			body = (nm + " · " if nm != "" else app.last_scan_code + " · ") + I18n.t("no_data_hint")
-			actions = true
 			can_search = true
 		"noname":
 			title = I18n.t("no_name")
 			body = I18n.t("barcode") + ": " + app.last_scan_code + " · " + I18n.t("no_data_hint")
-			actions = true
 		"rate":
 			title = I18n.t("error_rate")
-			body = I18n.t("attribution")
-			actions = true
+			body = I18n.t("error_rate_hint")
 			can_retry = true
 		"net":
 			title = I18n.t("error_net")
-			body = I18n.t("attribution")
-			actions = true
+			body = I18n.t("error_net_hint")
 			can_retry = true
 	var card := UI.card(38)
 	var v := UI.vbox(16)
-	v.add_child(UI.label(title, UI.FS_TITLE, "text" if status == "" else "accent_ink", 1))
+	v.add_child(UI.label(title, UI.FS_TITLE, "accent_ink", 1))
 	if body != "":
 		var b := UI.label(body, UI.FS_SMALL, "muted")
 		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(b)
-	if actions:
-		var row := UI.hbox(12)
-		if can_search:
-			var s := UI.button(I18n.t("search_online"), "primary")
-			s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			s.pressed.connect(func():
-				app.pending_search = app.last_missing.display_name(I18n.lang) if app.last_missing != null else ""
-				app.goto("search"))
-			row.add_child(s)
-		var g := UI.button(I18n.t("basic_food"), "ghost" if can_search else "primary")
-		g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		g.pressed.connect(func(): app.goto("generics"))
-		row.add_child(g)
-		if can_retry:
-			var r := UI.button(I18n.t("retry"), "ghost")
-			r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			r.pressed.connect(func(): app.retry_scan())
-			row.add_child(r)
-		v.add_child(row)
+	var row := UI.hbox(12)
+	if can_search:
+		var s := UI.button(I18n.t("search_online"), "primary")
+		s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		s.pressed.connect(func():
+			app.pending_search = app.last_missing.display_name(I18n.lang) if app.last_missing != null else ""
+			app.goto("search"))
+		row.add_child(s)
+	var g := UI.button(I18n.t("basic_food"), "ghost" if can_search else "primary")
+	g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	g.pressed.connect(func(): app.goto("generics"))
+	row.add_child(g)
+	if can_retry:
+		var r := UI.button(I18n.t("retry"), "ghost")
+		r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		r.pressed.connect(func(): app.retry_scan())
+		row.add_child(r)
+	v.add_child(row)
+	card.add_child(v)
+	return card
+
+## Grosser, ruhiger Text mittig im freien Bereich (Leerzustand, Laden).
+func _big_message(text: String) -> Control:
+	var l := UI.label(text, UI.FS_TITLE, "muted", 1)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.custom_minimum_size = Vector2(0, 160)
+	var m := MarginContainer.new()
+	for side in ["left", "right"]:
+		m.add_theme_constant_override("margin_" + side, 40)
+	m.add_child(l)
+	return m
+
+## "Kein Lebensmittel": gefunden in Open Products/Beauty Facts, mit Augenzwinkern.
+## compact=true -> schmales Banner ueber gepinnten Spalten.
+func _nonfood_card(compact: bool) -> Control:
+	var item: Dictionary = app.last_nonfood
+	var kind := str(item.get("kind", "other"))
+	var name := str(item.get("name", "")).strip_edges()
+	var brand := str(item.get("brand", "")).strip_edges()
+	var parts: PackedStringArray = []
+	if name != "":
+		parts.append(name)
+	if brand != "" and not name.to_lower().contains(brand.to_lower()):
+		parts.append(brand)
+	parts.append(NonFood.label(kind, I18n.lang))
+	var card := UI.card(16 if compact else 38)
+	var v := UI.vbox(6 if compact else 14)
+	v.add_child(UI.micro(I18n.t("nonfood_title"), "bad"))
+	var msg := UI.label(NonFood.message(kind, I18n.lang), UI.FS_BODY if compact else UI.FS_TITLE, "text", 2)
+	msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(msg)
+	var sub := UI.label(" · ".join(parts), UI.FS_MICRO if compact else UI.FS_SMALL, "muted")
+	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if compact:
+		sub.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		sub.autowrap_mode = TextServer.AUTOWRAP_OFF
+	v.add_child(sub)
+	if not compact:
+		var src := UI.label(I18n.t("found_in") + " " + NonFood.source_name(str(item.get("source", ""))),
+			UI.FS_MICRO, "faint")
+		v.add_child(src)
 	card.add_child(v)
 	return card
 
 func _build_rows(cols: Array) -> void:
 	var n: int = cols.size()
-	var num_size: int = [96, 92, 78, 64][clampi(n - 1, 0, 3)]
-	var donut_h: int = [200, 142, 144, 128][clampi(n - 1, 0, 3)]
 	var name_size: int = UI.FS_SMALL if n <= 2 else UI.FS_MICRO
-	var show_legend: bool = n <= 2
-	var show_best: bool = n >= 2
 
-	var evals: Array = []
-	var kcals: Array = []
-	var pds: Array = []
-	var sats: Array = []
-	for c in cols:
-		var ev := Metrics.evaluate(c["food"])
-		evals.append(ev)
-		kcals.append(ev.density if ev.density_ok else -1.0)
-		pds.append(ev.protein_density if ev.protein_density_ok else -1.0)
-		sats.append(float(ev.fullness.get("score", -1)) if ev.fullness_ok else -1.0)
-	var best_kcal := _best(kcals, true)
-	var best_pd := _best(pds, false)
-	var best_sat := _best(sats, false)
-
-	# Namen (+ Papierkorb / NEU)
+	# Namen (+ PIN-Hinweis)
 	var names := UI.hbox(12)
 	var pad := Control.new()
-	pad.custom_minimum_size = Vector2(150, 0)
+	pad.custom_minimum_size = Vector2(BlockView.GUTTER, 0)
 	names.add_child(pad)
 	for i in range(n):
 		names.add_child(_cell(i, 0, _head_cell(cols[i], name_size)))
 	_matrix.add_child(names)
 
-	# Makro-Donut (Prozente daneben; kompakt: Eiweiss-Prozent im Kreis)
-	var drows: Array = []
-	for i in range(n):
-		drows.append(_cell(i, 1, _donut_cell(evals[i], donut_h, show_legend, _delay(i, 1), _anim_cols[i])))
-	_matrix.add_child(_row("lbl_macros", drows))
-	_matrix.add_child(UI.hline("line"))
+	# Bausteine laut Layout. Kein Scrollen: jeder bekommt ein Hoehenbudget.
+	var foods: Array = []
+	for c in cols:
+		foods.append(c["food"])
+	var layout: Array = app.layout
+	var per := BlockView.budget(_blocks_avail(), layout.size())
+	var ctx := app.block_ctx()
+	for bi in layout.size():
+		var entry: Dictionary = layout[bi]
+		var row_idx := bi + 1
+		var sz := BlockView.sizes(Blocks.kind(entry["id"]), n, per, entry.get("options", {}))
+		var wrap := func(i: int, c: Control) -> Control: return _cell(i, row_idx, c)
+		var delay := func(i: int) -> float: return _delay(i, row_idx) if _anim_cols[i] else -1.0
+		_matrix.add_child(BlockView.block_row(entry, foods, ctx, sz, wrap, delay))
+		if bi < layout.size() - 1:
+			_matrix.add_child(UI.hline("line"))
 
-	# Kaloriendichte (gruen -> rot, auf einer Skala 0..500)
-	var krows: Array = []
-	for i in range(n):
-		var ev = evals[i]
-		var col: Color = UI.c("faint") if not ev.density_ok else UI.scale_color(Metrics.density_t(ev.density))
-		krows.append(_cell(i, 2, _bar_cell(ev.density if ev.density_ok else -1.0, 0, I18n.t("kcal_100g"), 500.0, col, num_size, show_best and i == best_kcal, i, 2)))
-	_matrix.add_child(_row("lbl_density", krows))
-	_matrix.add_child(UI.hline("line"))
-
-	# Eiweissdichte (viel = gruen)
-	var prows: Array = []
-	for i in range(n):
-		var ev = evals[i]
-		var col: Color = UI.c("faint") if not ev.protein_density_ok else UI.scale_color(Metrics.protein_t(ev.protein_density))
-		prows.append(_cell(i, 3, _bar_cell(ev.protein_density if ev.protein_density_ok else -1.0, 1, I18n.t("unit_g_100kcal"), 25.0, col, num_size, show_best and i == best_pd, i, 3)))
-	_matrix.add_child(_row("lbl_protein", prows))
-	_matrix.add_child(UI.hline("line"))
-
-	# Saettigung (hoch = gruen)
-	var srows: Array = []
-	for i in range(n):
-		var ev = evals[i]
-		var sc: float = float(ev.fullness.get("score", -1)) if ev.fullness_ok else -1.0
-		var col: Color = UI.c("faint") if sc < 0.0 else UI.scale_color(Metrics.satiety_t(sc))
-		srows.append(_cell(i, 4, _bar_cell(sc, 0, I18n.t("of_100"), 100.0, col, num_size, show_best and i == best_sat, i, 4)))
-	_matrix.add_child(_row("lbl_satiety", srows))
+## Verfuegbare Hoehe fuer die Bausteine (ohne Namenszeile, Banner, Hinweis).
+## Gemessen am Mittelteil; vor dem ersten Layout geschaetzt.
+func _blocks_avail() -> float:
+	var h := 0.0
+	if _mid != null and _mid.size.y > 1.0:
+		h = _mid.size.y - 8.0
+	else:
+		var vh := get_viewport_rect().size.y
+		h = vh * (1.0 - App.CAM_FRACTION) - 244.0
+	h -= 100.0                          # Namenszeile
+	if _banner_shown:
+		h -= 96.0
+	if _hint_shown:
+		h -= 50.0
+	return h
 
 ## Aufbau-Verzoegerung: Zeile fuer Zeile, Spalten leicht versetzt.
 func _delay(col: int, row: int) -> float:
@@ -390,61 +462,6 @@ func _cell(col: int, row: int, c: Control) -> Control:
 		Anim.pop_in(c, _delay(col, row))
 	return w
 
-func _donut_cell(ev: Dictionary, h: int, show_legend: bool, delay: float, animate: bool) -> Control:
-	var cell := UI.hbox(18 if show_legend else 0)
-	cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	if show_legend:
-		cell.alignment = BoxContainer.ALIGNMENT_CENTER
-	var d := MacroDonut.new()
-	d.custom_minimum_size = Vector2(h, h)
-	d.ring_width = h * 0.16
-	d.center_mode = "none" if show_legend else "protein"
-	if ev.split_ok:
-		d.set_split(ev.split)
-	cell.add_child(d)
-	if animate:
-		Anim.sweep(d, "progress", delay + 0.05)
-	if show_legend and ev.split_ok:
-		var legend := UI.vbox(12)
-		legend.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		legend.add_child(_legend_row("protein", ev.split))
-		legend.add_child(_legend_row("carbs", ev.split))
-		legend.add_child(_legend_row("fat", ev.split))
-		cell.add_child(legend)
-	return cell
-
-func _legend_row(key: String, split: Dictionary) -> Control:
-	var row := UI.hbox(10)
-	var ck: String = "protein"
-	if key == "carbs":
-		ck = "carbs"
-	elif key == "fat":
-		ck = "fat"
-	var sw := ColorRect.new()
-	sw.color = UI.c(ck)
-	sw.custom_minimum_size = Vector2(20, 20)
-	sw.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(sw)
-	var nm := UI.label(I18n.t(key + "_short"), UI.FS_MICRO, "muted", 1)
-	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	nm.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	nm.custom_minimum_size = Vector2(92, 0)
-	row.add_child(nm)
-	row.add_child(UI.label(str(roundi(float(split.get(key, 0.0)) * 100.0)) + " %", UI.FS_BODY, "text", 2))
-	return row
-
-func _row(label_key: String, cells: Array) -> Control:
-	var row := UI.hbox(12)
-	var lbl := UI.label(I18n.t(label_key), UI.FS_MICRO, "muted", 1)
-	lbl.custom_minimum_size = Vector2(150, 0)
-	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	row.add_child(lbl)
-	for c in cells:
-		row.add_child(c)
-	return row
-
 func _head_cell(col: Dictionary, name_size: int) -> Control:
 	var food: Food = col["food"]
 	var cell := UI.vbox(4)
@@ -459,7 +476,7 @@ func _head_cell(col: Dictionary, name_size: int) -> Control:
 	nm.custom_minimum_size = Vector2(0, 44)
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cell.add_child(nm)
-	var sub: String = food.brand if food.brand != "" else food.group
+	var sub: String = food.brand if food.brand != "" else food.display_group(I18n.lang)
 	var subrow := UI.hbox(8)
 	if sub != "":
 		var sl := UI.micro(sub)
@@ -494,45 +511,6 @@ func _swipe_chip() -> Control:
 	h.add_child(UI.label("PIN", UI.FS_MICRO, "accent_ink", 2))
 	p.add_child(h)
 	return p
-
-func _bar_cell(raw: float, decimals: int, unit: String, maxv: float, col: Color, num_size: int,
-		best: bool, ci: int, row: int) -> Control:
-	var cell := UI.vbox(6)
-	cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var num := UI.big_number_colored(Metrics.format_num(raw, decimals) if raw >= 0.0 else "–", col, num_size)
-	cell.add_child(num)
-	cell.add_child(UI.micro(unit))
-	var bar := MeterBar.new()
-	bar.bar_h = 26.0
-	bar.set_value(raw, maxv, "", col)
-	cell.add_child(bar)
-	if best:
-		var h := UI.hbox(0)
-		var chip := UI.chip(I18n.t("best"), "good")
-		h.add_child(chip)
-		cell.add_child(h)
-	if _anim_cols[ci] and raw >= 0.0:
-		var d := _delay(ci, row) + 0.05
-		Anim.count_up(num, raw, decimals, d)
-		Anim.sweep(bar, "progress", d)
-		if best:
-			Anim.pop_in(cell.get_child(cell.get_child_count() - 1), d + Anim.BUILD * 0.8, Anim.POP, 0.6)
-	return cell
-
-static func _best(values: Array, lower: bool) -> int:
-	var idx := -1
-	var ref := INF if lower else -INF
-	for i in values.size():
-		var v: float = values[i]
-		if v < 0.0:
-			continue
-		if lower and v < ref:
-			ref = v
-			idx = i
-		elif not lower and v > ref:
-			ref = v
-			idx = i
-	return idx
 
 # --- Wischgesten -------------------------------------------------------------
 
@@ -806,3 +784,14 @@ class PinLine extends Control:
 			return
 		var w := size.x * 0.42 * clampf(progress, 0.0, 1.0)
 		draw_rect(Rect2(0, 0, w, size.y), UI.c("accent"))
+
+## "X" fuer den Schliessen-Knopf (Open Sans hat kein passendes Zeichen).
+class CloseGlyph extends Control:
+	func _draw() -> void:
+		var m := minf(size.x, size.y)
+		var r := m * 0.20
+		var c := size * 0.5
+		var w := maxf(2.0, m * 0.05)
+		var col := UI.c("text")
+		draw_line(c + Vector2(-r, -r), c + Vector2(r, r), col, w, true)
+		draw_line(c + Vector2(-r, r), c + Vector2(r, -r), col, w, true)

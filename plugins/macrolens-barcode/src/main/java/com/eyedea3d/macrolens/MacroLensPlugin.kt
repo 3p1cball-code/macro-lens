@@ -7,6 +7,7 @@ import android.graphics.ColorMatrix
 import android.graphics.Matrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
+import android.net.Uri
 import android.os.SystemClock
 import android.util.Size
 import android.view.Gravity
@@ -130,6 +131,36 @@ class MacroLensPlugin(godot: Godot) : GodotPlugin(godot) {
     @UsedByGodot
     fun stopPreview() {
         runOnUiThread { stopPreviewInternal() }
+    }
+
+    /** Oeffnet eine URL (https:, mailto: ...) in der passenden System-App. */
+    @UsedByGodot
+    fun openUrl(url: String) {
+        val act = activity ?: return
+        runOnUiThread {
+            try {
+                val uri = Uri.parse(url)
+                val intent = if (url.startsWith("mailto:")) {
+                    Intent(Intent.ACTION_SENDTO, uri)
+                } else {
+                    Intent(Intent.ACTION_VIEW, uri)
+                }
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                act.startActivity(intent)
+            } catch (e: Exception) {
+                emitSignal("scan_failed", "url")
+            }
+        }
+    }
+
+    /** Beendet die App wirklich: Kamera aus, Activity samt Task weg. */
+    @UsedByGodot
+    fun quitApp() {
+        val act = activity ?: return
+        runOnUiThread {
+            stopPreviewInternal()
+            act.finishAndRemoveTask()
+        }
     }
 
     /** Teilt Text ueber das System-Share-Sheet. */

@@ -34,11 +34,14 @@ func _draw() -> void:
 	draw_arc(center, radius, 0.0, TAU, 96, UI.c("surface2"), ring_width, true)
 	if split.is_empty():
 		return
-	var segs := [
-		[float(split.get("protein", 0.0)), UI.c("protein")],
-		[float(split.get("carbs", 0.0)), UI.c("carbs")],
-		[float(split.get("fat", 0.0)), UI.c("fat")],
-	]
+	var segs := [[float(split.get("protein", 0.0)), UI.c("protein")]]
+	if bool(split.get("sugar_split", false)):
+		# Zucker ist Teil der KH: als eigener Bogen, Rest-KH daneben.
+		segs.append([float(split.get("sugar", 0.0)), UI.c("sugar")])
+		segs.append([float(split.get("starch", 0.0)), UI.c("carbs")])
+	else:
+		segs.append([float(split.get("carbs", 0.0)), UI.c("carbs")])
+	segs.append([float(split.get("fat", 0.0)), UI.c("fat")])
 	var angle := -PI * 0.5
 	var p := clampf(progress, 0.0, 1.0)
 	for s in segs:

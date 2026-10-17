@@ -8,18 +8,21 @@ const CACHE_PATH := "user://cache.json"
 const HISTORY_PATH := "user://history.json"
 const SETTINGS_PATH := "user://settings.json"
 const USER_FOODS_PATH := "user://my_foods.json"
+const NONFOOD_PATH := "user://nonfood.json"
 const MAX_HISTORY := 500
 
 var cache: Dictionary = {}          # barcode -> Food.to_dict()
 var history: Array = []             # [{barcode, ts}, ...] neueste zuerst
 var settings: Dictionary = {}       # theme/lang/unit
 var user_foods: Dictionary = {}     # selbst angelegte Generika
+var nonfood: Dictionary = {}        # barcode -> NonFood-Dictionary (kein Lebensmittel)
 
 func load_all() -> void:
 	cache = _read_dict(CACHE_PATH)
 	history = _read_array(HISTORY_PATH)
 	settings = _read_dict(SETTINGS_PATH)
 	user_foods = _read_dict(USER_FOODS_PATH)
+	nonfood = _read_dict(NONFOOD_PATH)
 	_apply_defaults()
 
 func _apply_defaults() -> void:
@@ -47,6 +50,7 @@ var _flush_scheduled := false
 
 func queue_cache() -> void: _schedule("cache")
 func queue_history() -> void: _schedule("history")
+func queue_nonfood() -> void: _schedule("nonfood")
 
 func _schedule(what: String) -> void:
 	_pending[what] = true
@@ -66,6 +70,8 @@ func flush_pending() -> void:
 		_write(CACHE_PATH, cache)
 	if _pending.has("history"):
 		_write(HISTORY_PATH, history)
+	if _pending.has("nonfood"):
+		_write(NONFOOD_PATH, nonfood)
 	_pending.clear()
 
 # --- Cache ------------------------------------------------------------------

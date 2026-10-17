@@ -25,8 +25,13 @@ for s in live generics history search about settings; do
 	shot "$s" "$s"
 done
 shot live_single live --single
+shot live_two live --two
 shot live_empty live --empty
 shot live_nodata live --nodata
+shot live_nonfood live --nonfood --empty
+shot live_custom live "--layout=macros,density,sugar,fiber,ampel"
+shot live_quit live --show-quit
+shot layout layout --empty
 
 rm -rf "$USERDATA"
 echo "OK: Screenshots in $ROOT/screenshots"

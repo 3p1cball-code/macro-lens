@@ -29,10 +29,10 @@ static func build(app: App) -> Control:
 		for f in items:
 			if not filtering and f.group != last_group:
 				last_group = f.group
-				list.add_child(UI.micro(f.group))
+				list.add_child(UI.micro(f.display_group(I18n.lang)))
 			var r := UI.hbox(10)
 			r.mouse_filter = Control.MOUSE_FILTER_PASS
-			var sub: String = f.group if filtering else ""
+			var sub: String = f.display_group(I18n.lang) if filtering else ""
 			var kcal: String = (Metrics.format_num(f.kcal, 0) + " kcal") if f.has_kcal() else ""
 			var on_tap := func(): app.pick(f, f.barcode, true)
 			r.add_child(UI.list_row(f.display_name(I18n.lang), sub, kcal, on_tap, UI.FS_SMALL))

@@ -12,7 +12,7 @@ const DARK := {
 	"line": "#2A2E34", "text": "#ECEEF0", "muted": "#8B9199", "faint": "#5B6068",
 	"accent": "#F0A020", "on_accent": "#141514", "accent_ink": "#F0A020",
 	"good": "#4CC38A", "bad": "#E5484D", "warn": "#E8B931",
-	"protein": "#4C8DF6", "carbs": "#F0A020", "fat": "#E5684D",
+	"protein": "#4C8DF6", "carbs": "#F0A020", "fat": "#E5684D", "sugar": "#E879A8",
 }
 
 const LIGHT := {
@@ -20,7 +20,7 @@ const LIGHT := {
 	"line": "#E0E2E5", "text": "#16181B", "muted": "#666C74", "faint": "#9AA0A6",
 	"accent": "#F0A020", "on_accent": "#141514", "accent_ink": "#9C5C00",
 	"good": "#1E9E6A", "bad": "#D03A3F", "warn": "#B78400",
-	"protein": "#2F6FD0", "carbs": "#C07A00", "fat": "#C24E36",
+	"protein": "#2F6FD0", "carbs": "#C07A00", "fat": "#C24E36", "sugar": "#C2477F",
 }
 
 # Schriftgroessen (Basis-Viewport 1080 breit)
@@ -131,6 +131,7 @@ static func spacer(min_size: float = 0.0) -> Control:
 
 static func hline(color_key: String = "line", thickness: int = 1) -> ColorRect:
 	var r := ColorRect.new()
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	r.color = c(color_key)
 	r.custom_minimum_size = Vector2(0, thickness)
 	r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -138,6 +139,7 @@ static func hline(color_key: String = "line", thickness: int = 1) -> ColorRect:
 
 static func vline(color_key: String = "line", thickness: int = 1) -> ColorRect:
 	var r := ColorRect.new()
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	r.color = c(color_key)
 	r.custom_minimum_size = Vector2(thickness, 0)
 	r.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -167,9 +169,12 @@ static func flat_style(color_key: String, radius: int = 4, pad: int = 0) -> Styl
 	sb.content_margin_bottom = pad
 	return sb
 
+## Karte. Reicht Zieh-Gesten an den ScrollContainer durch (PanelContainer
+## schluckt sie sonst - Seiten aus Karten liessen sich nicht scrollen).
 static func card(pad: int = 26) -> PanelContainer:
 	var p := PanelContainer.new()
 	p.add_theme_stylebox_override("panel", card_style(pad))
+	p.mouse_filter = Control.MOUSE_FILTER_PASS
 	return p
 
 # --- Buttons ----------------------------------------------------------------
@@ -315,6 +320,7 @@ static func list_row(title: String, subtitle: String, right_text: String = "", o
 ## Kleines farbiges Etikett (z. B. "BEST").
 static func chip(text: String, color_key: String, filled: bool = false) -> PanelContainer:
 	var p := PanelContainer.new()
+	p.mouse_filter = Control.MOUSE_FILTER_PASS
 	var sb := StyleBoxFlat.new()
 	sb.set_corner_radius_all(3)
 	sb.content_margin_left = 12
@@ -332,3 +338,24 @@ static func chip(text: String, color_key: String, filled: bool = false) -> Panel
 		p.add_theme_stylebox_override("panel", sb)
 		p.add_child(label(text.to_upper(), FS_MICRO, color_key, 2))
 	return p
+
+## Zeile mit Titel, optionaler Erklaerung und An/Aus-Schalter rechts.
+static func switch_row(title: String, hint: String, on: bool, cb: Callable) -> Control:
+	var row := hbox(18)
+	var v := vbox(6)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var t := label(title, FS_BODY, "text", 1)
+	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(t)
+	if hint != "":
+		var h := label(hint, FS_MICRO, "muted")
+		h.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(h)
+	row.add_child(v)
+	var sw := SwitchButton.new()
+	sw.set_pressed_no_signal(on)
+	sw.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	sw.toggled.connect(cb)
+	row.add_child(sw)
+	return row

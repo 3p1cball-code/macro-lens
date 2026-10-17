@@ -14,10 +14,12 @@ var generics: Generics
 
 var tray: Array = []              # gepinnte Vergleichsprodukte (max 4)
 var current: Food = null          # zuletzt gescannt/gewaehlt (noch nicht gepinnt)
-var scan_status: String = ""      # "", "loading", "nodata", "notfound", "rate", "net"
+var scan_status: String = ""      # "", "loading", "nodata", "noname", "notfound", "nonfood", "rate", "net"
 var last_scan_code: String = ""   # fuer "Nochmal"
 var last_missing: Food = null     # gefunden, aber ohne Naehrwerte
+var last_nonfood: Dictionary = {} # gefunden, aber kein Lebensmittel (NonFood-Dictionary)
 var pending_search: String = ""   # Vorbelegung fuer den Suche-Screen
+var layout: Array = []            # Bausteine der Hauptseite (siehe Layout)
 
 var _current_screen: Control = null
 var _current_name: String = ""
@@ -35,6 +37,7 @@ var _no_demo: bool = false
 var _single: bool = false
 var _two: bool = false
 var _nodata: bool = false
+var _nonfood_demo: bool = false
 
 func _ready() -> void:
 	for c in get_children():
@@ -47,7 +50,9 @@ func _ready() -> void:
 	generics.load_default()
 	off = OffClient.new()
 	off.store = store
+	off.lang = I18n.lang
 	add_child(off)
+	layout = Layout.load_from(store)
 	_load_tray()
 	_connect_plugin()
 	_parse_args()
@@ -87,12 +92,50 @@ func stop_preview() -> void:
 func _on_scan_failed(_msg: String) -> void:
 	pass
 
+## Link in der System-App oeffnen (Mail, Browser). Desktop: OS.shell_open.
+func open_url(url: String) -> void:
+	if has_scanner():
+		Engine.get_singleton("MacroLens").call("openUrl", url)
+	else:
+		OS.shell_open(url)
+
+## App sofort und wirklich beenden (X-Knopf). Vorher alles Ausstehende sichern.
+func quit_app() -> void:
+	if store != null:
+		store.flush_pending()
+	if has_scanner():
+		Engine.get_singleton("MacroLens").call("quitApp")
+	get_tree().quit()
+
+## Hauptseite: Bausteine setzen (bereinigt, sofort gespeichert).
+func set_layout(l: Array) -> void:
+	layout = Layout.sanitize(l)
+	Layout.save_to(store, layout)
+
+## Getraenke fuer Portion/Packung 1 ml ~ 1 g umrechnen (Standard: an).
+func ml_as_g() -> bool:
+	return bool(store.settings.get("ml_as_g", true))
+
+func set_ml_as_g(v: bool) -> void:
+	store.settings["ml_as_g"] = v
+	store.save_settings()
+
+func block_ctx() -> Dictionary:
+	return {"ml_as_g": ml_as_g()}
+
+func show_quit() -> bool:
+	return bool(store.settings.get("show_quit", false))
+
+func set_show_quit(v: bool) -> void:
+	store.settings["show_quit"] = v
+	store.save_settings()
+
 ## Erster Sichtkontakt eines Barcodes (vor der Bestaetigung): Produkt schon
 ## vorab laden, damit die Diagramme bei der Bestaetigung meist sofort stehen.
 func on_detected(code: String) -> void:
 	if code.strip_edges() == "" or not is_live():
 		return
-	if store == null or store.get_cached(code) != null:
+	if store == null or store.get_cached(code) != null or store.nonfood.has(code):
 		return
 	off.prefetch(code)
 
@@ -122,6 +165,23 @@ func _parse_args() -> void:
 			_two = true
 		elif a == "--nodata":
 			_nodata = true
+		elif a == "--nonfood":
+			_nonfood_demo = true
+		elif a == "--show-quit":
+			store.settings["show_quit"] = true
+		elif a.begins_with("--layout="):
+			# Screenshot/Test: Bausteine ohne Speichern setzen, z. B.
+			# --layout=macros,density,sugar  oder  --layout=preset:fat
+			var spec := a.substr(9)
+			if spec.begins_with("preset:"):
+				for p in Layout.builtin_presets():
+					if p["key"] == spec.substr(7):
+						layout = p["layout"]
+			else:
+				var l: Array = []
+				for id in spec.split(","):
+					l.append({"id": id.strip_edges()})
+				layout = Layout.sanitize(l)
 		elif a == "--empty":
 			_demo = false
 			_no_demo = true
@@ -182,6 +242,11 @@ func goto(name: String) -> void:
 		"search": node = SearchScreen.build(self)
 		"history": node = HistoryScreen.build(self)
 		"about": node = AboutScreen.build(self)
+		"layout":
+			var ed := LayoutEditor.new()
+			ed.app = self
+			ed.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			node = ed
 		"settings": node = SettingsScreen.build(self)
 		_:
 			var fallback := LiveScreen.new()
@@ -204,6 +269,9 @@ func refresh_live() -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		if _current_screen != null and _current_screen.has_method("handle_back") \
+				and _current_screen.call("handle_back"):
+			return
 		if not is_live():
 			go_back()
 	elif what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST:
@@ -216,7 +284,7 @@ func _exit_tree() -> void:
 
 ## Zurueck: Unterseiten der Einstellungen fuehren dorthin, alles andere zum Scan.
 func go_back() -> void:
-	goto("settings" if _current_name == "about" else "live")
+	goto("settings" if _current_name in ["about", "layout"] else "live")
 
 # --- Scan-Flow -------------------------------------------------------------
 
@@ -237,20 +305,39 @@ func on_scanned(code: String) -> void:
 	for f in tray:
 		if f.barcode == code:
 			return
+	# Derselbe Code mit endgueltigem Ergebnis haelt noch ins Bild: nicht alle
+	# 2,5 s neu laden/aufbauen (spart Netz und Flackern). "Nochmal" geht weiter.
+	if code == last_scan_code and scan_status in ["nonfood", "notfound", "nodata", "noname"]:
+		return
 	last_scan_code = code
 	var cached := store.get_cached(code)
 	if cached != null and cached.has_kcal() and cached.has_macros():
 		_show_current(cached)
 		return
+	# Schon als Nicht-Lebensmittel bekannt -> sofort, ohne Netz.
+	if cached == null and store.nonfood.has(code):
+		_show_nonfood(store.nonfood[code])
+		return
 	# Unbekannt ODER unvollstaendig gespeichert (z. B. aeltere Eintraege) -> nachladen.
 	scan_status = "loading"
 	refresh_live()
 	var res: Dictionary = await off.fetch_product(code, cached != null)
+	if last_scan_code != code:
+		return   # inzwischen wurde etwas anderes gescannt
 	var food: Food = res.get("food", null)
 	if food == null and cached != null:
 		food = cached
 	if food == null:
-		scan_status = str(res.get("error", "net"))
+		var err := str(res.get("error", "net"))
+		if err == "notfound":
+			# Nicht in Open Food Facts -> vielleicht gar kein Lebensmittel.
+			var nf: Dictionary = await off.lookup_nonfood(code)
+			if last_scan_code != code:
+				return
+			if nf.get("item", null) != null:
+				_show_nonfood(nf["item"])
+				return
+		scan_status = err
 		last_missing = null
 		refresh_live()
 		return
@@ -269,12 +356,21 @@ func on_scanned(code: String) -> void:
 		return
 	_show_current(food)
 
+func _show_nonfood(item: Dictionary) -> void:
+	last_nonfood = item
+	last_missing = null
+	scan_status = "nonfood"
+	refresh_live()
+
 ## Manuelles Wiederholen eines fehlgeschlagenen Scans (umgeht den Debounce).
 func retry_scan() -> void:
 	if last_scan_code == "":
 		return
+	var code := last_scan_code
 	_last_code = ""
-	on_scanned(last_scan_code)
+	last_scan_code = ""
+	scan_status = ""
+	on_scanned(code)
 
 func _show_current(food: Food) -> void:
 	current = food
@@ -414,25 +510,44 @@ static func _same(a: Food, b: Food) -> bool:
 		return a.barcode == b.barcode
 	return a.name == b.name
 
-## Kurze Meldung unten im Bild, blendet sich selbst aus.
-func toast(text: String) -> void:
+## Kurze Meldung unten im Bild, blendet sich selbst aus. Optional mit Aktion
+## (z. B. "RUECKGAENGIG"); dann bleibt sie etwas laenger stehen.
+func toast(text: String, action_text: String = "", action: Callable = Callable()) -> void:
 	var old := get_node_or_null("Toast")
 	if old != null:
 		old.name = "ToastOld"
 		old.queue_free()
 	var panel := PanelContainer.new()
 	panel.name = "Toast"
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE if not action.is_valid() else Control.MOUSE_FILTER_STOP
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = UI.c("text")
 	sb.content_margin_left = 34
-	sb.content_margin_right = 34
-	sb.content_margin_top = 22
-	sb.content_margin_bottom = 22
+	sb.content_margin_right = 34 if not action.is_valid() else 14
+	sb.content_margin_top = 22 if not action.is_valid() else 10
+	sb.content_margin_bottom = 22 if not action.is_valid() else 10
 	panel.add_theme_stylebox_override("panel", sb)
+	var h := UI.hbox(24)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var l := UI.label(text.to_upper(), UI.FS_MICRO, "bg", 2)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	panel.add_child(l)
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	h.add_child(l)
+	if action.is_valid():
+		var b := Button.new()
+		b.text = action_text
+		b.focus_mode = Control.FOCUS_NONE
+		b.flat = true
+		b.add_theme_font_override("font", UI.font(2))
+		b.add_theme_font_size_override("font_size", UI.FS_MICRO)
+		b.add_theme_color_override("font_color", Color("#9C5C00") if UI.dark else UI.c("accent"))
+		b.add_theme_color_override("font_hover_color", UI.c("accent"))
+		b.custom_minimum_size = Vector2(0, 68)
+		b.pressed.connect(func():
+			panel.queue_free()
+			action.call())
+		h.add_child(b)
+	panel.add_child(h)
 	panel.anchor_left = 0.5
 	panel.anchor_right = 0.5
 	panel.anchor_top = 0.80
@@ -442,7 +557,7 @@ func toast(text: String) -> void:
 	add_child(panel)
 	Anim.pop_in(panel, 0.0, 0.22)
 	var tw := panel.create_tween()
-	tw.tween_interval(1.8)
+	tw.tween_interval(1.8 if not action.is_valid() else 4.0)
 	tw.tween_property(panel, "modulate:a", 0.0, 0.25).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 	tw.tween_callback(panel.queue_free)
 
@@ -473,7 +588,14 @@ func _load_tray() -> void:
 	if arr is Array:
 		for d in arr:
 			if d is Dictionary:
-				tray.append(Food.from_dict(d))
+				var f := Food.from_dict(d)
+				# Grundnahrungsmittel immer frisch aus der Liste (Uebersetzungen,
+				# kuratierte Allergene) - gespeichert ist nur ein alter Schnappschuss.
+				if f.barcode.begins_with("generic:"):
+					var fresh := resolve_barcode(f.barcode)
+					if fresh != null:
+						f = fresh
+				tray.append(f)
 
 # --- Manuelle Eingabe ------------------------------------------------------
 
@@ -527,6 +649,7 @@ func set_lang(l: String) -> void:
 	store.settings["lang"] = l
 	store.save_settings()
 	I18n.lang = l
+	off.lang = l
 	goto(_current_name)
 
 # --- Demo (Screenshots) -----------------------------------------------------
@@ -542,6 +665,13 @@ func _demo_data() -> void:
 	if _two:
 		while tray.size() > 1:
 			tray.pop_back()
+	if _nonfood_demo:
+		last_nonfood = {"barcode": "8710447450598", "name": "Persil Universal Gel",
+			"brand": "Persil", "kind": "cleaning", "source": "openproductsfacts"}
+		last_scan_code = "8710447450598"
+		scan_status = "nonfood"
+		current = null
+		return
 	if _nodata:
 		var f := _demo_food()
 		f.kcal = -1.0
