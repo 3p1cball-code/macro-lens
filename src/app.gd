@@ -52,9 +52,6 @@ func _ready() -> void:
 	_connect_plugin()
 	_parse_args()
 	Anim.enabled = _shot_path == "" or _anim_at >= 0.0
-	# Kamera oeffnen, waehrend die Oberflaeche entsteht (spart Startzeit).
-	if _shot_path == "" and _shot_screen == "live" and not _demo:
-		start_preview()
 	if _demo:
 		_demo_data()
 	if _shot_path != "":

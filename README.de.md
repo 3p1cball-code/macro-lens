@@ -55,8 +55,8 @@ Barcode an Open Food Facts.
 ## Funktionen
 
 - **Dauerscan**: Live-Kameravorschau (CameraX) mit On-Device-ML-Kit-Barcode-Decoder
-  (gebündelt, ohne Play-Services-Zwang) — EAN-8/13, UPC-A/E, Code 128.
-  Barcode reinhalten, Grafiken aktualisieren.
+  (gebündelt, ohne Play-Services-Zwang) — EAN-8/13, UPC-A/E, Code 128, Code 39,
+  ITF. Barcode reinhalten, Grafiken aktualisieren.
 - **Wischen & Vergleich**: nach unten = pinnen, nach oben = entfernen; bis zu vier
   nebeneinander, Bestwert je Grafik markiert.
 - **Unverpackt-Liste** (~65 Grundnahrungsmittel: Banane, Haferflocken, Hähnchen,

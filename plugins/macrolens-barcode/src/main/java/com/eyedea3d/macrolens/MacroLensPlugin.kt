@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.ColorMatrix
+import android.graphics.Matrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.os.SystemClock
@@ -94,14 +95,14 @@ class MacroLensPlugin(godot: Godot) : GodotPlugin(godot) {
     private fun scanner(): BarcodeScanner {
         if (scanner == null) {
             val opts = BarcodeScannerOptions.Builder()
-                // Nur Formate, die auf Lebensmitteln vorkommen. ITF/CODE_39
-                // kosten Rechenzeit und produzieren Fehlkandidaten.
                 .setBarcodeFormats(
                     Barcode.FORMAT_EAN_13,
                     Barcode.FORMAT_EAN_8,
                     Barcode.FORMAT_UPC_A,
                     Barcode.FORMAT_UPC_E,
-                    Barcode.FORMAT_CODE_128
+                    Barcode.FORMAT_CODE_128,
+                    Barcode.FORMAT_CODE_39,
+                    Barcode.FORMAT_ITF
                 )
                 .build()
             scanner = BarcodeScanning.getClient(opts)
@@ -247,22 +248,11 @@ class MacroLensPlugin(godot: Godot) : GodotPlugin(godot) {
                 val ctrl = LifecycleCameraController(act)
                 ctrl.cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
                 ctrl.setEnabledUseCases(CameraController.IMAGE_ANALYSIS)
-                // Vorschau: nur so viele Pixel, wie die Flaeche oben zeigt.
-                ctrl.previewResolutionSelector = ResolutionSelector.Builder()
-                    .setResolutionStrategy(
-                        ResolutionStrategy(
-                            Size(1280, 720),
-                            ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER
-                        )
-                    )
-                    .build()
-                // Analyse bleibt 1280x720: Reichweite fuer kleine/ferne Codes
-                // geht vor Pixelsparen (der Scan soll nicht langsamer werden).
                 ctrl.imageAnalysisResolutionSelector = ResolutionSelector.Builder()
                     .setResolutionStrategy(
                         ResolutionStrategy(
                             Size(1280, 720),
-                            ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER
+                            ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
                         )
                     )
                     .build()
@@ -291,6 +281,20 @@ class MacroLensPlugin(godot: Godot) : GodotPlugin(godot) {
                         }
                         lastAnalyzed = now
                         mlkit.analyze(imageProxy)
+                    }
+
+                    // CameraController schiebt die Sensor->View-Matrix nur in
+                    // Analyzer, die sich als MlKitAnalyzer ausgeben. Ohne diese
+                    // zwei Delegationen bleibt die Matrix im MlKitAnalyzer null
+                    // und JEDER Frame wird verworfen (keine Barcodes).
+                    override fun getDefaultTargetResolution(): Size =
+                        mlkit.defaultTargetResolution
+
+                    override fun getTargetCoordinateSystem(): Int =
+                        mlkit.targetCoordinateSystem
+
+                    override fun updateTransform(matrix: Matrix?) {
+                        mlkit.updateTransform(matrix)
                     }
                 })
                 ctrl.bindToLifecycle(owner)
