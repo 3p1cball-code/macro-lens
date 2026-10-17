@@ -20,6 +20,9 @@ var last_missing: Food = null     # gefunden, aber ohne Naehrwerte
 var last_nonfood: Dictionary = {} # gefunden, aber kein Lebensmittel (NonFood-Dictionary)
 var pending_search: String = ""   # Vorbelegung fuer den Suche-Screen
 var layout: Array = []            # Bausteine der Hauptseite (siehe Layout)
+var last_alert_code: String = ""  # Produkt, dessen Allergen-Warnung im Banner steht
+var _alert_buzz: Dictionary = {}  # Barcode -> ms der letzten Warn-Vibration
+var _alert_refreshing: Dictionary = {}
 
 var _current_screen: Control = null
 var _current_name: String = ""
@@ -51,6 +54,7 @@ func _ready() -> void:
 	off = OffClient.new()
 	off.store = store
 	off.lang = I18n.lang
+	off.set_want_allergens(alerts_active())
 	add_child(off)
 	layout = Layout.load_from(store)
 	_load_tray()
@@ -64,6 +68,7 @@ func _ready() -> void:
 		await _capture_shot()
 	else:
 		goto("live")
+		_ensure_shown_allergens()
 
 # --- Plugin ----------------------------------------------------------------
 
@@ -123,6 +128,89 @@ func set_ml_as_g(v: bool) -> void:
 func block_ctx() -> Dictionary:
 	return {"ml_as_g": ml_as_g()}
 
+# --- Allergene & Unvertraeglichkeiten ---------------------------------------
+
+func alert_ids() -> Array:
+	return Allergens.sanitize(store.settings.get("alerts", []))
+
+func alerts_active() -> bool:
+	return not alert_ids().is_empty()
+
+func alert_traces() -> bool:
+	return bool(store.settings.get("alert_traces", true))
+
+func set_alert_ids(ids: Array) -> void:
+	store.settings["alerts"] = Allergens.sanitize(ids)
+	store.save_settings()
+	off.set_want_allergens(alerts_active())
+	_ensure_shown_allergens()
+
+func set_alert_traces(v: bool) -> void:
+	store.settings["alert_traces"] = v
+	store.save_settings()
+
+func analyze_alerts(f: Food) -> Dictionary:
+	if f == null or not alerts_active():
+		return {"state": "off", "hits": [], "checked": false}
+	return Allergens.analyze(f, alert_ids(), alert_traces())
+
+## Spuerbare Warnung beim Scan: orange = ein kraeftiger Impuls, rot = drei.
+## Pro Produkt hoechstens alle 10 s (das Produkt bleibt ja im Bild).
+func _alert_feedback(food: Food) -> void:
+	if not alerts_active():
+		return
+	var st := str(analyze_alerts(food)["state"])
+	if st != "red" and st != "orange":
+		return
+	var now := Time.get_ticks_msec()
+	if now - int(_alert_buzz.get(food.barcode, -100000)) < 10000:
+		return
+	_alert_buzz[food.barcode] = now
+	if st == "red":
+		_buzz_alarm()
+	else:
+		Input.vibrate_handheld(280, 0.85)
+
+func _buzz_alarm() -> void:
+	for i in 3:
+		Input.vibrate_handheld(200, 1.0)
+		await get_tree().create_timer(0.33).timeout
+
+## Fehlen einem angezeigten Produkt die Zutaten (alter Cache), im Hintergrund
+## nachladen und die Felder uebernehmen. Ohne Vibration - der Scan ist vorbei.
+func _ensure_allergen_data(food: Food) -> void:
+	if food == null or not alerts_active() or not food.needs_allergen_data():
+		return
+	var code := food.barcode
+	if code == "" or _alert_refreshing.has(code):
+		return
+	_alert_refreshing[code] = true
+	var res: Dictionary = await off.fetch_product(code, true)
+	_alert_refreshing.erase(code)
+	var fresh: Food = res.get("food", null)
+	if fresh == null:
+		return
+	var targets: Array = tray.duplicate()
+	if current != null:
+		targets.append(current)
+	var changed := false
+	for f in targets:
+		if f.barcode == code:
+			f.ingredients_text = fresh.ingredients_text
+			f.allergens_tags = fresh.allergens_tags
+			f.traces_tags = fresh.traces_tags
+			f.allergen_fetched = true
+			changed = true
+	if changed:
+		_save_tray()
+		refresh_live()
+
+func _ensure_shown_allergens() -> void:
+	for f in tray:
+		_ensure_allergen_data(f)
+	if current != null:
+		_ensure_allergen_data(current)
+
 func show_quit() -> bool:
 	return bool(store.settings.get("show_quit", false))
 
@@ -169,6 +257,9 @@ func _parse_args() -> void:
 			_nonfood_demo = true
 		elif a == "--show-quit":
 			store.settings["show_quit"] = true
+		elif a.begins_with("--alerts="):
+			# Screenshot/Test: Warnungen setzen (Datei wird im Shot-Modus verworfen)
+			store.settings["alerts"] = Allergens.sanitize(a.substr(9).split(","))
 		elif a.begins_with("--layout="):
 			# Screenshot/Test: Bausteine ohne Speichern setzen, z. B.
 			# --layout=macros,density,sugar  oder  --layout=preset:fat
@@ -242,6 +333,7 @@ func goto(name: String) -> void:
 		"search": node = SearchScreen.build(self)
 		"history": node = HistoryScreen.build(self)
 		"about": node = AboutScreen.build(self)
+		"alerts": node = AlertsScreen.build(self)
 		"layout":
 			var ed := LayoutEditor.new()
 			ed.app = self
@@ -284,7 +376,7 @@ func _exit_tree() -> void:
 
 ## Zurueck: Unterseiten der Einstellungen fuehren dorthin, alles andere zum Scan.
 func go_back() -> void:
-	goto("settings" if _current_name in ["about", "layout"] else "live")
+	goto("settings" if _current_name in ["about", "layout", "alerts"] else "live")
 
 # --- Scan-Flow -------------------------------------------------------------
 
@@ -310,9 +402,13 @@ func on_scanned(code: String) -> void:
 	if code == last_scan_code and scan_status in ["nonfood", "notfound", "nodata", "noname"]:
 		return
 	last_scan_code = code
+	last_alert_code = ""
 	var cached := store.get_cached(code)
-	if cached != null and cached.has_kcal() and cached.has_macros():
-		_show_current(cached)
+	# Aelterer Cache-Eintrag ohne Zutaten, aber Warnungen aktiv -> einmal frisch
+	# laden, damit die Warnung beim Scan (mit Vibration) sicher stimmt.
+	var stale := cached != null and alerts_active() and cached.needs_allergen_data()
+	if cached != null and cached.has_kcal() and cached.has_macros() and not stale:
+		_show_current(cached, true)
 		return
 	# Schon als Nicht-Lebensmittel bekannt -> sofort, ohne Netz.
 	if cached == null and store.nonfood.has(code):
@@ -354,7 +450,7 @@ func on_scanned(code: String) -> void:
 		scan_status = "nodata"
 		refresh_live()
 		return
-	_show_current(food)
+	_show_current(food, true)
 
 func _show_nonfood(item: Dictionary) -> void:
 	last_nonfood = item
@@ -372,11 +468,16 @@ func retry_scan() -> void:
 	scan_status = ""
 	on_scanned(code)
 
-func _show_current(food: Food) -> void:
+func _show_current(food: Food, from_scan: bool = false) -> void:
 	current = food
 	scan_status = ""
+	last_alert_code = food.barcode
 	_remember(food)
 	_warn_if_full()
+	if from_scan:
+		_alert_feedback(food)
+	else:
+		_ensure_allergen_data(food)
 	refresh_live()
 
 ## Bei voller Ablage wird ein neues Produkt nicht angezeigt -> kurz erklaeren.
@@ -438,6 +539,8 @@ func set_current(food: Food) -> void:
 		return
 	current = food
 	scan_status = ""
+	last_alert_code = food.barcode
+	_ensure_allergen_data(food)
 	_remember(food)
 	_warn_if_full()
 	refresh_live()
@@ -498,6 +601,8 @@ func add_pinned(food: Food) -> void:
 		return
 	tray.append(food)
 	_save_tray()
+	last_alert_code = food.barcode
+	_ensure_allergen_data(food)
 	# Dasselbe Produkt nicht zusaetzlich als "neue" Spalte zeigen.
 	if current != null and _same(current, food):
 		current = null
@@ -684,6 +789,7 @@ func _demo_data() -> void:
 	elif _shot_screen == "live":
 		current = _demo_food()
 		scan_status = ""
+		last_alert_code = current.barcode
 
 func _demo_food() -> Food:
 	var f := Food.new()
@@ -701,4 +807,8 @@ func _demo_food() -> Food:
 	f.sugars = 19.5
 	f.saturated = 2.1
 	f.salt = 0.28
+	f.ingredients_text = "Haferflocken 52 %, Zucker, HASELNÜSSE 8 %, Vollmilchpulver, Honig, Weizenmehl. Kann Spuren von Erdnüssen und Sesam enthalten."
+	f.allergens_tags = ["en:gluten", "en:milk", "en:nuts"]
+	f.traces_tags = ["en:peanuts", "en:sesame-seeds"]
+	f.allergen_fetched = true
 	return f

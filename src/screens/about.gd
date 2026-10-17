@@ -45,7 +45,7 @@ static func build(app: App) -> Control:
 
 	# Gut zu wissen
 	var good := _section(I18n.t("sec_good"))
-	for key in ["good_satiety", "good_ml", "good_fsa", "good_nonfood"]:
+	for key in ["good_alerts", "good_satiety", "good_ml", "good_fsa", "good_nonfood"]:
 		good.add_child(_bullet(I18n.t(key)))
 	content.add_child(_card(good))
 

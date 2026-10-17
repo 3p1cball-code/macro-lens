@@ -43,6 +43,11 @@ func _to_food(raw: Dictionary) -> Food:
 	f.sugars = float(raw.get("sug", -1))
 	f.saturated = float(raw.get("sat", -1))
 	f.salt = float(raw.get("salt", -1))
+	# Kuratierte Allergene/Unvertraeglichkeiten ("~id" = Spur). Fehlt das Feld,
+	# gilt das Lebensmittel als nicht geprueft.
+	if raw.has("al") and raw["al"] is Array:
+		f.curated = true
+		f.curated_alerts = Food._str_array(raw["al"])
 	return f
 
 func search(query: String) -> Array:

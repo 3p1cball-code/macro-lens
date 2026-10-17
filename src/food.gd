@@ -27,6 +27,14 @@ var sugars: float = NO_VALUE        # sugars_100g
 var salt: float = NO_VALUE          # salt_100g
 
 var source: String = ""             # "openfoodfacts" | "generic" | "user"
+
+# Allergene / Unvertraeglichkeiten (nur geladen, wenn Warnungen aktiv sind)
+var ingredients_text: String = ""   # Zutatenliste (DE/EN/Original, zusammengefuegt)
+var allergens_tags: Array = []      # z. B. ["en:milk", "en:nuts"]
+var traces_tags: Array = []         # Spuren, z. B. ["en:peanuts"]
+var allergen_fetched := false       # mit Allergen-Feldern geladen (auch wenn leer)
+var curated_alerts: Array = []      # Grundnahrung: geprueft, z. B. ["milk", "lactose", "~nuts"]
+var curated := false                # true = curated_alerts ist verbindlich
 var image_url: String = ""
 var updated_ms: int = 0
 
@@ -122,6 +130,8 @@ func to_dict() -> Dictionary:
 		"fat": fat, "saturated": saturated, "fiber": fiber, "sugars": sugars,
 		"salt": salt, "source": source, "image_url": image_url,
 		"updated_ms": updated_ms,
+		"ingredients_text": ingredients_text, "allergens_tags": allergens_tags,
+		"traces_tags": traces_tags, "allergen_fetched": allergen_fetched,
 	}
 
 static func from_dict(d: Dictionary) -> Food:
@@ -146,7 +156,23 @@ static func from_dict(d: Dictionary) -> Food:
 	f.source = str(d.get("source", ""))
 	f.image_url = str(d.get("image_url", ""))
 	f.updated_ms = int(d.get("updated_ms", 0))
+	f.ingredients_text = str(d.get("ingredients_text", ""))
+	f.allergens_tags = _str_array(d.get("allergens_tags", []))
+	f.traces_tags = _str_array(d.get("traces_tags", []))
+	f.allergen_fetched = bool(d.get("allergen_fetched", false))
 	return f
+
+static func _str_array(v) -> Array:
+	var out: Array = []
+	if v is Array:
+		for x in v:
+			out.append(str(x))
+	return out
+
+## Fehlen die Daten fuer die Allergen-Pruefung (Produkt aus Open Food Facts,
+## aber noch ohne Allergen-Felder geladen)?
+func needs_allergen_data() -> bool:
+	return source == "openfoodfacts" and not allergen_fetched
 
 func clone() -> Food:
 	return Food.from_dict(to_dict())

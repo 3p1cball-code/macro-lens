@@ -32,6 +32,8 @@ shot live_nonfood live --nonfood --empty
 shot live_custom live "--layout=macros,density,sugar,fiber,ampel"
 shot live_quit live --show-quit
 shot layout layout --empty
+shot live_alerts live "--alerts=milk,nuts,lactose,gluten"
+shot alerts alerts --empty "--alerts=milk,nuts,lactose"
 
 rm -rf "$USERDATA"
 echo "OK: Screenshots in $ROOT/screenshots"

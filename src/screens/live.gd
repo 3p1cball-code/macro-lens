@@ -20,6 +20,7 @@ var _busy := false                # Wegfliegen laeuft (Doppelgeste-Schutz)
 var _mid: Control = null          # Mittelteil (Hoehe = Platz fuer die Bausteine)
 var _banner_shown := false
 var _hint_shown := false
+var _alert_shown := false
 var _plan_sig := ""               # Groessenplan des letzten Aufbaus
 var _built_ms := 0
 
@@ -179,6 +180,8 @@ func _columns() -> Array:
 		cols.append({"food": app.tray[i], "pinned": true, "index": i})
 	if app.current != null and app.tray.size() < App.MAX_TRAY and not app.tray_has(app.current):
 		cols.append({"food": app.current, "pinned": false, "index": -1})
+	for c in cols:
+		c["alert"] = app.analyze_alerts(c["food"])
 	return cols
 
 static func _key(f: Food) -> String:
@@ -210,6 +213,12 @@ func refresh() -> void:
 	for i in cols.size():
 		_col_nodes.append([])
 
+	var ab := _alert_banner(cols)
+	_alert_shown = ab != null
+	if ab != null:
+		_matrix.add_child(ab)
+		if _anim_cols.has(true):
+			Anim.pop_in(ab, 0.0, Anim.POP, 0.97)
 	_banner_shown = not cols.is_empty() and app.scan_status != "" and app.scan_status != "loading"
 	if _banner_shown:
 		var banner := _status_banner()
@@ -253,6 +262,112 @@ func _on_mid_resized() -> void:
 	if Time.get_ticks_msec() - _built_ms < 400:
 		_first_build = true
 	refresh.call_deferred()
+
+# --- Allergene & Unvertraeglichkeiten -----------------------------------------
+
+func _alert_color(state: String) -> Color:
+	match state:
+		"red": return UI.c("bad")
+		"orange": return UI.c("intol")
+	return UI.c("faint")
+
+## Spalten-Hinterlegung: rot (Allergie), orange (Unvertraeglichkeit / Spur).
+func _alert_tint(col: int) -> Color:
+	if col < 0 or col >= _cols.size():
+		return Color(0, 0, 0, 0)
+	var st := str(_cols[col].get("alert", {}).get("state", ""))
+	if st != "red" and st != "orange":
+		return Color(0, 0, 0, 0)
+	var c := _alert_color(st)
+	c.a = 0.16 if UI.dark else 0.13
+	return c
+
+## Badge in der Kopfzeile: was ist los (Farbe + Text, nicht nur Farbe).
+func _alert_badge(r: Dictionary) -> Control:
+	var st := str(r.get("state", ""))
+	if st != "red" and st != "orange":
+		return null
+	var key := "badge_allergen"
+	if st == "orange":
+		key = "badge_trace"
+		for h in r["hits"]:
+			if not h["trace"]:
+				key = "badge_intol"
+	var chip := UI.chip(I18n.t(key), "bad" if st == "red" else "intol", true)
+	chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return chip
+
+## Gruende als Text: "Enthält Milch, Nüsse · Unverträglich: Laktose · Spuren: Sesam".
+func _alert_reasons(r: Dictionary) -> String:
+	var parts: PackedStringArray = []
+	var a := Allergens.list_names(r["hits"], Allergens.ALLERGY, I18n.lang)
+	var i := Allergens.list_names(r["hits"], Allergens.INTOL, I18n.lang)
+	var t := Allergens.list_names(r["hits"], "trace", I18n.lang)
+	if a != "":
+		parts.append(I18n.t("alert_contains") + " " + a)
+	if i != "":
+		parts.append(I18n.t("alert_intol") + " " + i)
+	if t != "":
+		parts.append(I18n.t("alert_traces") + " " + t)
+	return " · ".join(parts)
+
+## Banner fuer das zuletzt gescannte/gewaehlte Produkt: warum rot/orange -
+## oder ehrlich "nicht geprueft", wenn Zutaten fehlen. Nie "sicher".
+func _alert_banner(cols: Array) -> Control:
+	if app.last_alert_code == "" or not app.alerts_active():
+		return null
+	var col: Dictionary = {}
+	for c in cols:
+		if (c["food"] as Food).barcode == app.last_alert_code:
+			col = c
+	if col.is_empty():
+		return null
+	var r: Dictionary = col["alert"]
+	var st := str(r["state"])
+	if st == "off" or st == "none":
+		return null
+	var food: Food = col["food"]
+	var color := _alert_color(st)
+	var title := I18n.t("alert_red") if st == "red" else (I18n.t("alert_orange") if st == "orange" else I18n.t("alert_unknown"))
+	var text := _alert_reasons(r) if st != "unknown" else I18n.t("alert_unknown_body")
+	var p := PanelContainer.new()
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := UI.card_style(0, 4, "surface")
+	sb.bg_color = UI.c("surface").lerp(color, 0.16 if st != "unknown" else 0.0)
+	sb.border_color = color if st != "unknown" else UI.c("line")
+	sb.set_border_width_all(1)
+	sb.border_width_left = 8
+	sb.content_margin_left = 22
+	sb.content_margin_right = 18
+	sb.content_margin_top = 12
+	sb.content_margin_bottom = 12
+	p.add_theme_stylebox_override("panel", sb)
+	var v := UI.vbox(4)
+	var head := UI.label((title + "  ·  " + food.display_name(I18n.lang)).to_upper(), UI.FS_MICRO,
+		"text" if st == "unknown" else ("bad" if st == "red" else "intol"), 2)
+	head.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	v.add_child(head)
+	var body := UI.label(text, UI.FS_SMALL, "text", 1)
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.max_lines_visible = 2
+	body.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	v.add_child(body)
+	p.add_child(v)
+	return p
+
+## Tippen auf die Kopfzeile einer gewarnten Spalte -> alle Gruende als Meldung.
+func _tap_details(col: int, pos: Vector2) -> void:
+	if col < 0 or col >= _cols.size() or _col_nodes[col].is_empty():
+		return
+	var head := _col_nodes[col][0] as Control
+	if head == null or not head.get_global_rect().grow(8).has_point(pos):
+		return
+	var r: Dictionary = _cols[col].get("alert", {})
+	var st := str(r.get("state", ""))
+	if st == "red" or st == "orange":
+		app.toast(_alert_reasons(r))
+	elif st == "unknown":
+		app.toast(I18n.t("alert_unknown"))
 
 ## Kompaktes Banner ueber der Matrix, wenn ein Scan keine brauchbaren Daten
 ## geliefert hat (die gepinnten Produkte bleiben dabei sichtbar).
@@ -442,6 +557,8 @@ func _blocks_avail() -> float:
 	h -= 100.0                          # Namenszeile
 	if _banner_shown:
 		h -= 96.0
+	if _alert_shown:
+		h -= 150.0
 	if _hint_shown:
 		h -= 50.0
 	return h
@@ -457,6 +574,7 @@ func _delay(col: int, row: int) -> float:
 ## Zelle der Spalte zuordnen und (bei neuer Spalte) einblenden.
 func _cell(col: int, row: int, c: Control) -> Control:
 	var w := Slide.new().wrap(c)
+	w.tint = _alert_tint(col)
 	_col_nodes[col].append(w)
 	if _anim_cols[col]:
 		Anim.pop_in(c, _delay(col, row))
@@ -478,6 +596,10 @@ func _head_cell(col: Dictionary, name_size: int) -> Control:
 	cell.add_child(nm)
 	var sub: String = food.brand if food.brand != "" else food.display_group(I18n.lang)
 	var subrow := UI.hbox(8)
+	var badge := _alert_badge(col.get("alert", {}))
+	if badge != null:
+		subrow.add_child(badge)
+		sub = ""                     # Platz fuer die Warnung statt der Marke
 	if sub != "":
 		var sl := UI.micro(sub)
 		sl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -549,6 +671,8 @@ func _input(event: InputEvent) -> void:
 			if _g_active:
 				get_viewport().set_input_as_handled()
 				_release()
+			elif event.position.distance_to(_g_start) < SWIPE_START:
+				_tap_details(_g_col, event.position)
 			_g_col = -1
 	elif event is InputEventMouseMotion and _g_col >= 0 \
 			and (event.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0:

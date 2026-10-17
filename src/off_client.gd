@@ -17,11 +17,13 @@ class_name OffClient
 const USER_AGENT := "MacroLens/0.4 (alexander.riedel@eyedea3d.com)"
 # image_front_url/completeness werden nie angezeigt -> nicht mitladen (Bytes/Zeit).
 const FIELDS := "code,product_name,product_name_de,product_name_en,generic_name,brands,quantity,serving_size,nutriments"
-const PRODUCT_URL := "https://world.openfoodfacts.org/api/v2/product/%s?fields=" + FIELDS
+## Nur bei aktiven Allergen-Warnungen zusaetzlich geladen (spart sonst Bytes).
+const ALLERGEN_FIELDS := ",ingredients_text,ingredients_text_de,ingredients_text_en,allergens_tags,traces_tags"
+const PRODUCT_URL := "https://world.openfoodfacts.org/api/v2/product/%s?fields=%s"
 ## Suche: Search-a-licious (neu, schnell, stabil) zuerst; die alte cgi-Suche
 ## (laut OFF ~10/min, liefert zeitweise 503) nur noch als Rueckfall.
-const SAL_URL := "https://search.openfoodfacts.org/search?page_size=20&langs=%s&fields=" + FIELDS + "&q=%s"
-const SEARCH_URL := "https://world.openfoodfacts.org/cgi/search.pl?action=process&json=1&search_simple=1&page_size=20&fields=" + FIELDS + "&search_terms=%s"
+const SAL_URL := "https://search.openfoodfacts.org/search?page_size=20&langs=%s&fields=%s&q=%s"
+const SEARCH_URL := "https://world.openfoodfacts.org/cgi/search.pl?action=process&json=1&search_simple=1&page_size=20&fields=%s&search_terms=%s"
 
 ## Nicht-Lebensmittel: gleiche Software, andere Datenbanken.
 const NONFOOD_FIELDS := "code,product_name,product_name_de,product_name_en,generic_name,brands,categories,categories_tags"
@@ -45,6 +47,16 @@ var store: Store
 var _last_ms := {"product": -100000, "sal": -100000, "search": -100000, "nonfood": -100000}
 var _rate_until := {"product": 0, "sal": 0, "search": 0, "nonfood": 0}
 var lang := "de"                        # bevorzugte Sprache fuer Suchtreffer
+var want_allergens := false             # Zutaten/Allergene mitladen (Warnungen aktiv)
+
+## Allergen-Felder an/aus. Gecachte Suchtreffer ohne diese Felder verwerfen.
+func set_want_allergens(v: bool) -> void:
+	if v != want_allergens:
+		_search_cache.clear()
+	want_allergens = v
+
+func _fields() -> String:
+	return FIELDS + (ALLERGEN_FIELDS if want_allergens else "")
 var _inflight: Dictionary = {}          # code -> true (eine Anfrage pro Produkt)
 var _results: Dictionary = {}           # code -> letztes Ergebnis (fuer Mitwarter)
 var _search_cache: Dictionary = {}      # key -> {at, res}
@@ -95,13 +107,16 @@ func prefetch(barcode: String) -> void:
 func _fetch_remote(barcode: String) -> Dictionary:
 	if not await _throttle("product"):
 		return {"food": null, "cached": false, "error": "rate"}
-	var res := await _http_get(PRODUCT_URL % barcode)
+	var with_allergens := want_allergens
+	var res := await _http_get(PRODUCT_URL % [barcode, _fields()])
 	var err := _classify(res, "product")
 	if err != "" and err != "notfound":
 		return {"food": null, "cached": false, "error": err}
 	var parsed = _json(res)
 	if err == "" and parsed is Dictionary and int(parsed.get("status", 0)) == 1:
 		var f := parse_product(parsed.get("product", {}))
+		if f != null:
+			f.allergen_fetched = with_allergens
 		if f != null and store:
 			store.put_cache(f)
 			store.queue_cache()
@@ -191,19 +206,21 @@ func _search_sal(q: String) -> Dictionary:
 	if not await _throttle("sal"):
 		return {"foods": [], "error": "rate", "cached": false}
 	var langs := "de,en" if lang == "de" else "en,de"
-	var res := await _http_get(SAL_URL % [langs, q.uri_encode()])
+	var with_allergens := want_allergens
+	var res := await _http_get(SAL_URL % [langs, _fields(), q.uri_encode()])
 	var err := _classify(res, "sal")
 	if err != "":
 		return {"foods": [], "error": "net" if err == "notfound" else err, "cached": false}
 	var parsed = _json(res)
 	if not (parsed is Dictionary) or not (parsed.get("hits", null) is Array):
 		return {"foods": [], "error": "net", "cached": false}
-	return {"foods": _foods_from(parsed["hits"]), "error": "", "cached": false}
+	return {"foods": _foods_from(parsed["hits"], with_allergens), "error": "", "cached": false}
 
 func _search_legacy(q: String) -> Dictionary:
 	if not await _throttle("search"):
 		return {"foods": [], "error": "rate", "cached": false}
-	var res := await _http_get(SEARCH_URL % q.uri_encode())
+	var with_allergens := want_allergens
+	var res := await _http_get(SEARCH_URL % [_fields(), q.uri_encode()])
 	var err := _classify(res, "search")
 	if err == "notfound":
 		return {"foods": [], "error": "", "cached": false}
@@ -212,9 +229,9 @@ func _search_legacy(q: String) -> Dictionary:
 	var parsed = _json(res)
 	if not (parsed is Dictionary):
 		return {"foods": [], "error": "net", "cached": false}
-	return {"foods": _foods_from(parsed.get("products", [])), "error": "", "cached": false}
+	return {"foods": _foods_from(parsed.get("products", []), with_allergens), "error": "", "cached": false}
 
-static func _foods_from(list) -> Array:
+static func _foods_from(list, with_allergens: bool = false) -> Array:
 	var out: Array = []
 	if not (list is Array):
 		return out
@@ -223,6 +240,7 @@ static func _foods_from(list) -> Array:
 			continue
 		var f := parse_product(p)
 		if f != null and f.name.strip_edges() != "":
+			f.allergen_fetched = with_allergens
 			out.append(f)
 	return out
 
@@ -275,6 +293,15 @@ static func parse_product(p: Dictionary) -> Food:
 		var sodium := _nutri(n, "sodium")
 		if sodium >= 0.0:
 			f.salt = sodium * 2.5
+	# Allergene (nur vorhanden, wenn angefragt)
+	var texts: PackedStringArray = []
+	for k in ["ingredients_text_de", "ingredients_text", "ingredients_text_en"]:
+		var t := str(p.get(k, "")).strip_edges()
+		if t != "" and t.to_lower() != "null" and not texts.has(t):
+			texts.append(t)
+	f.ingredients_text = " . ".join(texts)
+	f.allergens_tags = Food._str_array(p.get("allergens_tags", []))
+	f.traces_tags = Food._str_array(p.get("traces_tags", []))
 	return f
 
 ## Naehrwert pro 100 g. Viele Produkte (z. B. tiefgekuehlte/gegarte Ware) fuehren

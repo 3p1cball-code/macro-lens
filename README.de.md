@@ -106,6 +106,17 @@ und Open Beauty Facts.
   unterschieden; Produkt- und Suchanfragen getrennt gedrosselt; Suchen gecacht und
   zusammengelegt; Suche über Search-a-licious mit der alten Suche als Rückfall.
 - **Optionales X** zum sofortigen Schließen der App (Einstellungen).
+- **Allergene & Unverträglichkeiten** (Einstellungen): Auswahl aus den 14
+  EU-Hauptallergenen („Nüsse (alle)“ inkl. Erdnüsse, dazu „Nur Erdnüsse“) sowie
+  Laktose, Fruktose, Sorbit, Koffein, Histamin. Enthält ein gescanntes Produkt eine
+  ausgewählte Allergie, wird es **rot** hinterlegt (drei kräftige Vibrationen), bei
+  Unverträglichkeit oder Allergen-Spur **orange** (eine kräftige Vibration); ein
+  Banner sagt warum, Tippen auf die Spalte zeigt alles. Erkannt wird über
+  Allergen-Angaben, Spuren und Zutatenliste von Open Food Facts (deutsche/englische
+  Stichwörter, Verneinungen wie „ohne Milch“, Fallen wie Kokosmilch oder
+  Kakaobutter, „laktosefrei“/„glutenfrei“); Grundnahrungsmittel sind kuratiert.
+  Fehlen Zutaten, steht „nicht geprüft“ – nie „sicher“. **Eine Hilfe, keine
+  Garantie: immer das Etikett lesen.** Die Auswahl bleibt auf dem Gerät.
 - **Unverpackt-Liste** (~65 Grundnahrungsmittel: Banane, Haferflocken, Hähnchen,
   Skyr …), direkt in den Vergleich übernehmbar, vollständig offline.
 - **Namenssuche** über Open Food Facts.
@@ -159,6 +170,7 @@ godot --headless --path . --script res://tests/test_app.gd
 godot --headless --path . --script res://tests/test_gesture.gd
 godot --headless --path . --script res://tests/test_off.gd
 godot --headless --path . --script res://tests/test_layout.gd
+godot --headless --path . --script res://tests/test_allergens.gd
 ```
 
 Screenshots aller Screens (Demo-Daten):
@@ -176,6 +188,7 @@ src/
   blocks.gd          die zehn Bausteine: Katalog, Optionen, Auswertung
   layout.gd          Hauptseite, Vorlagen, eigene Vorlagen
   nonfood.gd         Nicht-Lebensmittel: Einordnung und Texte
+  allergens.gd       Allergene & Unverträglichkeiten: Katalog und Erkennung
   off_client.gd      Open-Food-Facts-Client (Fehlerklassen, Drosselung, Caches, Nicht-Lebensmittel)
   generics.gd        mitgelieferte Unverpackt-Liste
   store.gd           lokale Persistenz (Cache, Verlauf, Einstellungen)
@@ -197,7 +210,8 @@ gegen echte Etiketten prüfen, ohne die App zu starten.
 ## Stand
 
 Im Alltag benutzbar. Scannen → Lookup → Grafiken → Vergleich funktioniert
-durchgängig; seit 0.4.0 ist die Hauptseite frei zusammenstellbar. Geplant:
+durchgängig; seit 0.4.0 ist die Hauptseite frei zusammenstellbar, seit 0.5.0 gibt es
+Allergen- und Unverträglichkeits-Warnungen. Geplant:
 Play-Store-Build (AAB) mit optionaler Unterstützer-Option.
 
 ## Lizenz

@@ -105,6 +105,17 @@ and Open Beauty Facts.
   cached and de-duplicated; search uses Search-a-licious with the classic search
   as fallback.
 - **Optional X** to close the app immediately (settings).
+- **Allergens & intolerances** (settings): pick from the 14 major EU allergens
+  ("Nuts (all)" includes peanuts, plus "Peanuts only") and lactose, fructose,
+  sorbitol, caffeine, histamine. A scanned product that contains a selected
+  allergy is highlighted **red** (three strong vibrations), an intolerance or an
+  allergen trace **orange** (one strong vibration); a banner says why, tapping a
+  flagged column lists everything. Detection uses Open Food Facts allergen tags,
+  traces and the ingredient list (German/English keywords, negations like
+  "ohne Milch", traps like coconut milk or cocoa butter, "lactose-free" /
+  "gluten-free" claims); basic foods are curated. Missing ingredients show
+  "not checked" — the app never claims "safe". **A help, not a guarantee:
+  always read the label.** The selection stays on the device.
 - **Unpackaged basics** (~65 staples: banana, oats, chicken, skyr, …) that can be
   added to the comparison and works fully offline.
 - **Name search** through Open Food Facts.
@@ -158,6 +169,7 @@ godot --headless --path . --script res://tests/test_app.gd
 godot --headless --path . --script res://tests/test_gesture.gd
 godot --headless --path . --script res://tests/test_off.gd
 godot --headless --path . --script res://tests/test_layout.gd
+godot --headless --path . --script res://tests/test_allergens.gd
 ```
 
 Render screenshots of all screens (demo data):
@@ -175,6 +187,7 @@ src/
   blocks.gd          the ten building blocks: catalogue, options, evaluation
   layout.gd          home-screen layout, presets, own presets
   nonfood.gd         non-food classification and messages
+  allergens.gd       allergens & intolerances: catalogue and detection
   off_client.gd      Open Food Facts client (error classes, throttles, caches, non-food)
   generics.gd        bundled unpackaged-basics list
   store.gd           local persistence (cache, history, settings)
@@ -196,7 +209,8 @@ it can be verified against real labels without running the app.
 ## Status
 
 Usable day to day. Scanning → lookup → charts → comparison works end to end;
-the home screen is customisable since 0.4.0. Planned next: Play Store build
+the home screen is customisable since 0.4.0, allergen and intolerance
+warnings since 0.5.0. Planned next: Play Store build
 (AAB) with an optional supporter option.
 
 ## License

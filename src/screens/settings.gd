@@ -29,6 +29,39 @@ static func build(app: App) -> Control:
 	home.add_child(hv)
 	content.add_child(home)
 
+	# Allergene & Unvertraeglichkeiten
+	var al := UI.card(30)
+	var av := UI.vbox(16)
+	av.add_child(UI.micro(I18n.t("alerts_title")))
+	var sel := app.alert_ids()
+	var a_names: PackedStringArray = []
+	var i_names: PackedStringArray = []
+	for id in sel:
+		if Allergens.kind_of(id) == Allergens.ALLERGY:
+			a_names.append(Allergens.short_name(id, I18n.lang))
+		else:
+			i_names.append(Allergens.short_name(id, I18n.lang))
+	if sel.is_empty():
+		av.add_child(UI.label(I18n.t("alerts_none"), UI.FS_BODY, "text", 1))
+		var hint := UI.label(I18n.t("alerts_settings_hint"), UI.FS_SMALL, "muted")
+		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		av.add_child(hint)
+	else:
+		if not a_names.is_empty():
+			var l := UI.label(I18n.t("alerts_allergies") + ": " + ", ".join(a_names), UI.FS_SMALL, "bad", 1)
+			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			av.add_child(l)
+		if not i_names.is_empty():
+			var l2 := UI.label(I18n.t("alerts_intol") + ": " + ", ".join(i_names), UI.FS_SMALL, "intol", 1)
+			l2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			av.add_child(l2)
+	var ab2 := UI.button(I18n.t("alerts_btn") + "  ›", "ghost")
+	ab2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ab2.pressed.connect(func(): app.goto("alerts"))
+	av.add_child(ab2)
+	al.add_child(av)
+	content.add_child(al)
+
 	# Optionen (Schalter)
 	var opts := UI.card(30)
 	var ov := UI.vbox(22)

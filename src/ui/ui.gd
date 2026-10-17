@@ -13,6 +13,7 @@ const DARK := {
 	"accent": "#F0A020", "on_accent": "#141514", "accent_ink": "#F0A020",
 	"good": "#4CC38A", "bad": "#E5484D", "warn": "#E8B931",
 	"protein": "#4C8DF6", "carbs": "#F0A020", "fat": "#E5684D", "sugar": "#E879A8",
+	"intol": "#F28C28",
 }
 
 const LIGHT := {
@@ -21,6 +22,7 @@ const LIGHT := {
 	"accent": "#F0A020", "on_accent": "#141514", "accent_ink": "#9C5C00",
 	"good": "#1E9E6A", "bad": "#D03A3F", "warn": "#B78400",
 	"protein": "#2F6FD0", "carbs": "#C07A00", "fat": "#C24E36", "sugar": "#C2477F",
+	"intol": "#C25E0A",
 }
 
 # Schriftgroessen (Basis-Viewport 1080 breit)
