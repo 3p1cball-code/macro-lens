@@ -1,0 +1,47 @@
+{
+ "_doc": "Sprechertext je Szene. id = Szene, wird in index.html ueber vo_<lang>.json (Dauern) eingeplant. <lang>_say = Lautschrift nur fuer die TTS (z. B. Äpp, Träcking); bewertet wird gegen <lang>.",
+ "lines": [
+  {
+   "id": "problem",
+   "de": "Der Supermarkt. Zweihundert Müslis, und auf jedem steht „gesund“. Die Nährwerttabelle hat Schriftgröße Ameise.",
+   "en": "The supermarket. Two hundred cereals, and every single one says healthy. The nutrition label is printed in font size: ant."
+  },
+  {
+   "id": "scan",
+   "de": "Macro Lens macht daraus vier Grafiken. Kamera drauf, fertig. Kein Auslöser, kein Foto – die App scannt einfach dauernd.",
+   "en": "Macro Lens turns that into four charts. Point the camera, done. No shutter, no photo. It just keeps scanning.",
+   "de_say": "Macro Lens macht daraus vier Grafiken. Kamera drauf, fertig. Kein Auslöser, kein Foto – die Äpp scannt einfach dauernd."
+  },
+  {
+   "id": "charts",
+   "de": "Woraus kommen die Kalorien? Wie viel Energie steckt in hundert Gramm? Wie viel Eiweiß pro Kalorie? Und wie gut macht es satt?",
+   "en": "Where do the calories come from? How much energy is in a hundred grams? How much protein per calorie? And how filling is it?"
+  },
+  {
+   "id": "pin",
+   "de": "Nach unten wischen: gepinnt. Das Müsli bleibt, du gehst weiter.",
+   "en": "Swipe down: pinned. The cereal stays, you move on."
+  },
+  {
+   "id": "compare",
+   "de": "Kein Barcode an der Banane? Dafür gibt es die Unverpackt-Liste. Bis zu vier Produkte nebeneinander – und das Knusper-Müsli hat jetzt einiges zu erklären.",
+   "en": "No barcode on the banana? There's a list for unpackaged food. Up to four products side by side, and the crunchy cereal suddenly has some explaining to do."
+  },
+  {
+   "id": "remove",
+   "de": "Nach oben wischen: weg damit.",
+   "en": "Swipe up: gone."
+  },
+  {
+   "id": "grade",
+   "de": "Andere geben dir eine Note. Wie früher in der Schule. Macro Lens gibt dir die Zahlen. Entscheiden darfst du selbst.",
+   "en": "Others give you a grade, like back in school. Macro Lens gives you the numbers. The decision is yours."
+  },
+  {
+   "id": "end",
+   "de": "Kein Konto. Keine Werbung. Kein Tracking. Macro Lens – ein Messgerät, kein Tagebuch.",
+   "en": "No account. No ads. No tracking. Macro Lens. A measuring device, not a diary.",
+   "de_say": "Kein Konto. Keine Werbung. Kein Träcking. Macro Lens – ein Messgerät, kein Tagebuch."
+  }
+ ]
+}

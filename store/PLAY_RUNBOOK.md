@@ -1,6 +1,14 @@
 # Macro Lens → Google Play — Runbook
 
-Stand 15.10.2026. Schritt für Schritt. ✅ = schon erledigt (von mir vorbereitet).
+Stand 17.10.2026 · Version **0.5.0** (versionCode 16). Schritt für Schritt.
+✅ = schon erledigt (von mir vorbereitet).
+
+> **Neu seit 0.5.0:** Allergen-/Unverträglichkeits-Warnungen machen Macro Lens zur
+> **Health-App („Ernährung und Gewichtsmanagement“)**. Folgen: Health-Deklaration ankreuzen,
+> Pflicht-Hinweis „kein Medizinprodukt“ im Store-Text (drin), Kamera-Hinweis vor der
+> Berechtigung (in der App), Data Safety ehrlich mit „App-Aktivität“. Einzelpersonen-Konto
+> bleibt zulässig (Organisation nur für *medizinische* Apps).
+> GitHub-Releases (APK) gibt es nicht mehr – verteilt wird nur noch über Play.
 
 > **Gewählter Weg: Einzelpersonen-Konto.** Das heißt konkret:
 > 25 USD → Identitätsprüfung → App + Formulare → **geschlossener Test mit ≥ 12 Testern über
@@ -39,13 +47,13 @@ Stand 15.10.2026. Schritt für Schritt. ✅ = schon erledigt (von mir vorbereite
 
 ## Phase 1 — Technische Artefakte ✅ vorbereitet
 
-- [x] **AAB** gebaut, signiert: `build/macro-lens.aab` (≈59 MB, arm64-v8a + armeabi-v7a) — Play zerlegt das automatisch pro Gerät.
+- [x] **AAB 0.5.0** gebaut, signiert: `build/macro-lens.aab` (arm64-v8a + armeabi-v7a) — Play zerlegt das automatisch pro Gerät. Geprüft: versionCode 16, Signatur, Berechtigungen, 16-KB-Alignment.
 - [x] **targetSdk 36** (Play-Vorgabe ab 31.08.2026), minSdk 24.
 - [x] **16-KB-Page-Size** aller nativen Bibliotheken geprüft (`libgodot_android.so`, `libbarhopper_v3.so`, …) → alle `0x4000`. Pflicht ab 1.11.2025 erfüllt.
-- [x] **Berechtigungen**: nur `CAMERA`, `INTERNET`, `ACCESS_NETWORK_STATE`, `VIBRATE` — keine sensiblen.
-- [x] **Store-Grafiken**: `store/icon-512.png`, `store/feature-graphic-1024x500.png`
-- [x] **Screenshots** (1080×1920, 9:16): `store/screenshots/de/…` und `…/en/…` (je 4)
-- [x] **Texte** DE/EN: `store/listing-de.md`, `store/listing-en.md`
+- [x] **Berechtigungen**: nur `CAMERA`, `INTERNET`, `ACCESS_NETWORK_STATE`, `VIBRATE`. `CAMERA` gilt bei Health-Apps als gesundheitsrelevant → In-App-Hinweis vor der Anfrage ✅.
+- [x] **Store-Grafiken**: `store/icon-512.png`, `store/feature-graphic-1024x500.png` (DE), `store/feature-graphic-1024x500-en.png` (EN) — `python3 tools/make_store_assets.py`
+- [x] **Screenshots** (1080×1920, 9:16): `store/screenshots/de/…` und `…/en/…` (je 7: Vergleich, Allergen-Warnung, eigene Seite, Editor, Allergen-Liste, Kein Lebensmittel, Unverpackt)
+- [x] **Texte** DE/EN: `store/listing-de.md`, `store/listing-en.md`, Release-Notes 0.5.0 in `store/release-notes-template.md` — geprüft mit `python3 tools/check_listing.py`
 - [x] **Datenschutzerklärung** live: https://3p1cball-code.github.io/macro-lens/privacy.html
 
 Neuen Build erzeugen:
@@ -54,6 +62,8 @@ tools/setup_build_template.sh      # nur beim ersten Mal / nach Godot-Update
 tools/build_plugin.sh              # Barcode-Plugin-AAR
 tools/build_aab.sh                 # → build/macro-lens.aab
 tools/store_shots.sh               # Store-Screenshots neu rendern
+python3 tools/make_store_assets.py # Icon + Feature-Grafiken DE/EN
+python3 tools/check_listing.py     # Zeichengrenzen + Grafiken prüfen
 ```
 > **Vor jedem Play-Update:** `version/code` in `export_presets.cfg` erhöhen (muss je Upload steigen), `version/name` anpassen.
 
@@ -97,13 +107,13 @@ GitHub Pages ist eingerichtet und live:
 | Kurzbeschreibung (≤80) | `store/listing-de.md` |
 | Vollständige Beschreibung (≤4000) | `store/listing-de.md` |
 | App-Symbol 512×512 | `store/icon-512.png` |
-| Feature-Grafik 1024×500 | `store/feature-graphic-1024x500.png` |
-| Telefon-Screenshots (2–8) | `store/screenshots/de/*.png` |
+| Feature-Grafik 1024×500 | `store/feature-graphic-1024x500.png` (EN: `…-en.png`) |
+| Telefon-Screenshots (2–8) | `store/screenshots/de/*.png` (7 Stück, Reihenfolge 1–7) |
 | Kontakt-E-Mail | `macro-lens@eyedea3d.com` |
-| Website | `https://augenrahmen.de` (oder die Pages-URL) |
-| Kategorie & Tags | Gesundheit & Fitness · Ernährung, Einkaufen |
+| Website | `https://3p1cball-code.github.io/macro-lens/` |
+| Kategorie & Tags | Gesundheit & Fitness · Ernährung, Einkaufen, Allergien |
 
-Englisch zusätzlich anlegen (Übersetzung → Englisch) mit `store/listing-en.md` und `store/screenshots/en/*`.
+Englisch zusätzlich anlegen (Übersetzung → Englisch) mit `store/listing-en.md`, `store/screenshots/en/*` und `store/feature-graphic-1024x500-en.png`.
 
 ---
 
@@ -111,14 +121,12 @@ Englisch zusätzlich anlegen (Übersetzung → Englisch) mit `store/listing-en.m
 
 1. **Datenschutzerklärung:** URL aus Phase 3 eintragen.
 2. **App-Zugriff:** „Alle Funktionen sind ohne besonderen Zugang verfügbar" (kein Login).
-3. **Datensicherheit (Data Safety):**
-   - *Erhebt oder teilt deine App Nutzerdaten?* → **Nein**.
-   - Der App ist kein Nutzerkonto bekannt; gesendet wird ausschließlich die **Barcode-Nummer** an Open Food Facts (keine personenbezogenen Daten). Das steht so in der Datenschutzerklärung (Kapitel 2).
+3. **Datensicherheit (Data Safety):** *Ja* – nur **App-Aktivität** (In-App-Suchverlauf optional, Barcode-Nummer als „Sonstige Aktionen“), nicht geteilt, verschlüsselt, Zweck App-Funktionalität. Allergen-Auswahl bleibt lokal → nicht angeben. Tabelle + Begründung: `store/production-request.md`.
 4. **Zielgruppe & Inhalte:** Altersgruppe **13+**, nicht für Kinder ausgerichtet.
 5. **Werbung:** *Nein, keine Werbung*.
 6. **Content-Rating (IARC-Fragebogen):** Kategorie *Dienstprogramm/Referenz*; alle Gewalt-/Sex-/Glücksspielfragen **Nein** → erwartete Einstufung *USK 0 / Everyone*.
-7. **Gesundheit:** keine medizinischen Aussagen (steht als Hinweis in der Beschreibung).
-8. **Behörden-/Nachrichten-/Finanz-Apps:** jeweils *Nein*.
+7. **Gesundheits-Apps:** **„Ernährung und Gewichtsmanagement“**, kein Medizinprodukt. Pflicht-Hinweis in der Beschreibung ✅.
+8. **Behörden-/Nachrichten-/Finanz-Apps:** jeweils *Nein* bzw. „keine“.
 
 ---
 
@@ -158,7 +166,7 @@ Nach Ablauf: **„Produktion beantragen"** — Formulierung siehe `store/product
 
 - **Vitals** (Abstürze/ANR) im Blick behalten.
 - Bewertungen beantworten.
-- Updates: `tools/bump_version.sh 0.3.0` → `tools/build_aab.sh` → Production-Release
+- Updates: `tools/bump_version.sh 0.5.1` → `tools/build_aab.sh` → Production-Release
   (Release-Notes-Vorlage: `store/release-notes-template.md`).
 
 ---
@@ -171,5 +179,7 @@ Nach Ablauf: **„Produktion beantragen"** — Formulierung siehe `store/product
 | „targetSdk zu alt" | Wir sind auf 36 ✅. |
 | „16 KB page size" | Alle `.so` mit `0x4000`-Alignment ✅ (mit `llvm-readelf -l` prüfbar). |
 | Kamera wird hinterfragt | Kein sensibler Antrag nötig; nur Zweck in der Beschreibung erwähnen. |
-| Sideload-APK ≠ Play-Signatur | Mit Play App Signing hat die Store-Version eine andere Signatur → Nutzer der GitHub-APK müssen die Play-Version ggf. neu installieren (nicht „drüberinstallieren"). |
+| Sideload-APK ≠ Play-Signatur | Mit Play App Signing hat die Store-Version eine andere Signatur → die selbst gebaute App vor der Play-Installation deinstallieren (Verlauf/Einstellungen gehen dabei verloren). |
+| „Health-App braucht Organisationskonto“ | Nur medizinische Apps und Forschungs-Apps. Ernährung/Allergene = „Ernährung und Gewichtsmanagement“ → Einzelperson ok. |
+| Allergen-Warnung als Medizin missverstanden | Hinweis „kein Medizinprodukt …“ steht in Beschreibung und App; die App sagt nie „sicher“. |
 | Keystore verloren | Upload-Key kann bei Play zurückgesetzt werden, solange das Konto zugänglich ist. |

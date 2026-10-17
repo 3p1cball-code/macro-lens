@@ -287,6 +287,15 @@ const STRINGS := {
 	"badge_trace": ["SPUREN", "TRACES"],
 	"good_alerts": ["Allergene & Unverträglichkeiten (Einstellungen): Die Prüfung nutzt Allergen-Angaben und Zutatenliste von Open Food Facts und ist eine Hilfe, keine Garantie – fehlen Zutaten, steht „nicht geprüft“, nie „sicher“. Bei Allergien immer das Etikett lesen.", "Allergens & intolerances (settings): the check uses Open Food Facts allergen info and ingredient lists and is a help, not a guarantee – if ingredients are missing it says “not checked”, never “safe”. With allergies always read the label."],
 
+	# --- Kamera-Hinweis ----------------------------------------------------------
+	"cam_title": ["Kamera", "Camera"],
+	"cam_head": ["Macro Lens braucht die Kamera – nur für Barcodes.", "Macro Lens needs the camera – for barcodes only."],
+	"cam_p1": ["Die Kamera liest Barcodes direkt auf dem Gerät. Bilder werden weder gespeichert noch übertragen.", "The camera reads barcodes right on the device. Images are neither stored nor transmitted."],
+	"cam_p2": ["Nur die erkannte Barcode-Nummer wird an Open Food Facts gesendet, um die Nährwerte zu laden (bei Nicht-Lebensmitteln an Open Products / Beauty Facts).", "Only the recognised barcode number is sent to Open Food Facts to load the nutrition data (for non-food to Open Products / Beauty Facts)."],
+	"cam_p3": ["Ohne Kamera gehen Suche, Unverpackt-Liste und manuelle Barcode-Eingabe weiterhin.", "Without the camera, search, the unpackaged list and manual barcode entry still work."],
+	"cam_ok": ["KAMERA ERLAUBEN", "ALLOW CAMERA"],
+	"cam_later": ["Später", "Later"],
+
 	"scan_hint": ["Barcode scannen", "Scan barcode"],
 	"scan_unavailable": ["Scanner nur auf Android verfügbar.", "Scanner only available on Android."],
 }

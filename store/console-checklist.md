@@ -1,6 +1,7 @@
 # Play Console — Checkliste (zum Abhaken)
 
-Konto ist erstellt ✅. Jetzt in dieser Reihenfolge durch die Console.
+Stand: Version **0.5.0** (versionCode 16). Konto ist erstellt ✅. Jetzt in dieser Reihenfolge
+durch die Console.
 
 ---
 
@@ -36,11 +37,14 @@ Alle Punkte müssen „fertig" sein, sonst lässt sich kein Release veröffentli
 - [ ] **Zielgruppe:** Altersgruppen 13+, „App an Kinder gerichtet?" → **Nein**
 - [ ] **Neuigkeiten-App:** Nein
 - [ ] **COVID-19-Kontaktverfolgung:** Nein
-- [ ] **Datensicherheit:** *Erhebt/teilt die App Nutzerdaten?* → **Nein**
+- [ ] **Datensicherheit:** *Erhebt/teilt die App Nutzerdaten?* → **Ja**, nur *App-Aktivität*
+      (In-App-Suchverlauf optional, Barcode-Nummer als „Sonstige Aktionen“), nicht geteilt,
+      verschlüsselt, Zweck App-Funktionalität → Details in `store/production-request.md`
 - [ ] **Behörden-App:** Nein
-- [ ] **Finanzfunktionen:** Nein
-- [ ] **Gesundheits-App:** ehrlich „Nein" (reine Nährwert-Information, keine Gesundheitsdaten,
-      keine medizinischen Aussagen)
+- [ ] **Finanzfunktionen:** keine
+- [ ] **Gesundheits-Apps:** **„Ernährung und Gewichtsmanagement“** ankreuzen (Allergen-Warnungen,
+      spezielle Ernährungsbedürfnisse), *kein* Medizinprodukt, keine Health-Connect-Berechtigungen.
+      Der Pflicht-Hinweis „kein Medizinprodukt …“ steht in der Beschreibung.
 
 > Formulierungen zum Kopieren: **`store/production-request.md`**
 
@@ -53,12 +57,14 @@ Alle Punkte müssen „fertig" sein, sonst lässt sich kein Release veröffentli
 - [ ] Vollständige Beschreibung (≤4000): aus `store/listing-de.md`
 - [ ] App-Symbol: `store/icon-512.png`
 - [ ] Feature-Grafik: `store/feature-graphic-1024x500.png`
-- [ ] Telefon-Screenshots (mind. 2): `store/screenshots/de/1_dauerscan.png` … `4_grundnahrung.png`
+- [ ] Telefon-Screenshots: alle 7 aus `store/screenshots/de/` in der Reihenfolge 1–7
+      (Liste mit Beschreibung in `store/listing-de.md`)
 - [ ] Kategorie: **Gesundheit & Fitness**
 - [ ] Kontakt-E-Mail: `macro-lens@eyedea3d.com`
-- [ ] Website (optional): `https://augenrahmen.de`
+- [ ] Website (optional): `https://3p1cball-code.github.io/macro-lens/`
 - [ ] Sprachen: Deutsch (Standard) — danach **Englisch** ergänzen (Übersetzung → Englisch)
-      mit `store/listing-en.md` + `store/screenshots/en/`
+      mit `store/listing-en.md`, `store/screenshots/en/` und
+      `store/feature-graphic-1024x500-en.png`
 
 ---
 
@@ -67,9 +73,11 @@ Alle Punkte müssen „fertig" sein, sonst lässt sich kein Release veröffentli
 - [ ] **Testen → Interner Test → Neuen Release erstellen**
 - [ ] Play App Signing bestätigen (Standard)
 - [ ] **AAB hochladen:** `build/macro-lens.aab` (neu bauen: `tools/build_aab.sh`)
-- [ ] Release-Name/Notes: aus `store/release-notes-template.md`
+- [ ] Release-Name: `0.5.0`, Notes: Abschnitt „0.5.0“ aus `store/release-notes-template.md`
 - [ ] **Speichern → Review starten** (bei neuen Apps oft einige Stunden)
-- [ ] Nach Freigabe: Link öffnen, auf dem eigenen Handy installieren, **echten Scan testen**
+- [ ] Nach Freigabe: Link öffnen, auf dem eigenen Handy installieren (vorher die selbst
+      gebaute App deinstallieren – andere Signatur), **echten Scan testen**: Kamera-Hinweis,
+      Scan, Allergen-Warnung (z. B. Milch + Nutella), Einstellungen
 
 ---
 
@@ -84,6 +92,8 @@ Alle Punkte müssen „fertig" sein, sonst lässt sich kein Release veröffentli
 ## Gut zu wissen
 
 - **Paketname** wird beim ersten Upload festgelegt (`com.eyedea3d.macrolens`) → nicht mehr änderbar.
-- **Version hochziehen** vor jedem Upload: `tools/bump_version.sh 0.3.0` → `tools/build_aab.sh`
+- **Version hochziehen** vor jedem *weiteren* Upload: `tools/bump_version.sh 0.5.1` → `tools/build_aab.sh`
+  (0.5.0 / versionCode 16 ist der erste Upload)
+- **Texte prüfen:** `python3 tools/check_listing.py` (Zeichengrenzen, Grafiken)
 - **Nur kostenlos & werbefrei** = die Formulare bleiben so einfach wie hier beschrieben.
   (Supporter-IAP später nachrüstbar.)

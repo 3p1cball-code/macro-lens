@@ -19,11 +19,15 @@ shot() { # screen lang outname [extra]
 }
 
 for lang in de en; do
+	rm -rf "$ROOT/store/screenshots/$lang"
 	mkdir -p "$ROOT/store/screenshots/$lang"
-	shot live     "$lang" "1_dauerscan"
-	shot live     "$lang" "2_vergleich"  --two
-	shot live     "$lang" "3_produkt"    --single
-	shot generics "$lang" "4_grundnahrung"
+	shot live     "$lang" "1_vergleich"
+	shot live     "$lang" "2_allergene"     "--alerts=milk,nuts,lactose,gluten"
+	shot live     "$lang" "3_eigene_seite"  "--layout=macros,density,sugar,fiber,ampel"
+	shot layout   "$lang" "4_bausteine"     --empty
+	shot alerts   "$lang" "5_allergen_liste" "--empty --alerts=milk,nuts,gluten,lactose"
+	shot live     "$lang" "6_kein_lebensmittel" "--nonfood --empty"
+	shot generics "$lang" "7_grundnahrung"
 done
 rm -rf "$USERDATA"
 echo "OK: Screenshots in $ROOT/store/screenshots"

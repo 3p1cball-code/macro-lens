@@ -133,10 +133,9 @@ Barcode decoding runs on-device via the bundled ML Kit scanner (CameraX preview)
 
 ## Download
 
-Grab the latest signed APK from the [Releases](../../releases/latest) page
-(arm64-v8a, Android 7+). Sideload it and open it — that's it.
-Because the APK is not distributed through Google Play, Android may show a
-one-time "install from unknown sources" prompt.
+Macro Lens is on its way to **Google Play**. APK builds are no longer published
+here; until the store release you can build it yourself (see below). The old
+APK releases on GitHub are outdated.
 
 ## Build from source
 

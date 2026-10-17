@@ -155,7 +155,7 @@ static func _legend_row(name_key: String, color_key: String, share: float) -> Co
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	nm.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	nm.custom_minimum_size = Vector2(92, 0)
+	nm.custom_minimum_size = Vector2(112, 0)
 	r.add_child(nm)
 	r.add_child(UI.label(str(roundi(share * 100.0)) + " %", UI.FS_BODY, "text", 2))
 	return r

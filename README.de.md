@@ -134,10 +134,9 @@ Die Barcode-Erkennung läuft on-device über den gebündelten ML-Kit-Scanner (Ca
 
 ## Download
 
-Das neueste signierte APK gibt es unter [Releases](../../releases/latest)
-(arm64-v8a, ab Android 7). Herunterladen, installieren, fertig. Da die App nicht
-über Google Play verteilt wird, fragt Android einmalig nach der Erlaubnis,
-Apps aus unbekannten Quellen zu installieren.
+Macro Lens kommt in den **Google Play Store**. APK-Builds werden hier nicht mehr
+veröffentlicht; bis zum Store-Release lässt sich die App selbst bauen (siehe
+unten). Die alten APK-Releases auf GitHub sind veraltet.
 
 ## Aus dem Quelltext bauen
 

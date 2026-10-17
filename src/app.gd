@@ -41,6 +41,7 @@ var _single: bool = false
 var _two: bool = false
 var _nodata: bool = false
 var _nonfood_demo: bool = false
+var _disclosure_demo: bool = false
 
 func _ready() -> void:
 	for c in get_children():
@@ -65,6 +66,8 @@ func _ready() -> void:
 		_demo_data()
 	if _shot_path != "":
 		goto(_shot_screen)
+		if _disclosure_demo:
+			_show_camera_disclosure()
 		await _capture_shot()
 	else:
 		goto("live")
@@ -87,8 +90,68 @@ func has_scanner() -> bool:
 	return Engine.has_singleton("MacroLens")
 
 func start_preview() -> void:
-	if has_scanner():
-		Engine.get_singleton("MacroLens").call("startPreview", CAM_FRACTION)
+	if not has_scanner():
+		return
+	# Vor der ersten Kamera-Anfrage erklaeren, wofuer sie dient (Play-Vorgabe
+	# fuer Health-Apps mit CAMERA: deutliche Offenlegung + Zustimmung).
+	if not camera_disclosed():
+		_show_camera_disclosure()
+		return
+	Engine.get_singleton("MacroLens").call("startPreview", CAM_FRACTION)
+
+## Kamera-Hinweis schon bestaetigt - oder die Berechtigung besteht bereits
+## (Update einer aelteren Version): dann nicht nochmal fragen.
+func camera_disclosed() -> bool:
+	if bool(store.settings.get("camera_disclosed", false)):
+		return true
+	if "android.permission.CAMERA" in OS.get_granted_permissions():
+		store.settings["camera_disclosed"] = true
+		store.save_settings()
+		return true
+	return false
+
+func _show_camera_disclosure() -> void:
+	if get_node_or_null("CameraDisclosure") != null:
+		return
+	var overlay := Control.new()
+	overlay.name = "CameraDisclosure"
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.72)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(dim)
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(center)
+	var card := UI.card(44)
+	card.custom_minimum_size = Vector2(920, 0)
+	var v := UI.vbox(24)
+	v.add_child(UI.micro(I18n.t("cam_title"), "accent_ink"))
+	var head := UI.label(I18n.t("cam_head"), UI.FS_TITLE, "text", 2)
+	head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(head)
+	for key in ["cam_p1", "cam_p2", "cam_p3"]:
+		var l := UI.label(I18n.t(key), UI.FS_SMALL, "muted")
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(l)
+	var ok := UI.button(I18n.t("cam_ok"), "primary")
+	ok.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ok.pressed.connect(func():
+		store.settings["camera_disclosed"] = true
+		store.save_settings()
+		overlay.queue_free()
+		if is_live():
+			start_preview())
+	v.add_child(ok)
+	var later := UI.button(I18n.t("cam_later"), "ghost", UI.FS_SMALL)
+	later.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	later.pressed.connect(func(): overlay.queue_free())
+	v.add_child(later)
+	card.add_child(v)
+	center.add_child(card)
+	add_child(overlay)
+	Anim.pop_in(card, 0.0, 0.22, 0.97)
 
 func stop_preview() -> void:
 	if has_scanner():
@@ -255,6 +318,8 @@ func _parse_args() -> void:
 			_nodata = true
 		elif a == "--nonfood":
 			_nonfood_demo = true
+		elif a == "--camera-disclosure":
+			_disclosure_demo = true
 		elif a == "--show-quit":
 			store.settings["show_quit"] = true
 		elif a.begins_with("--alerts="):
@@ -351,6 +416,9 @@ func goto(name: String) -> void:
 		start_preview()
 	else:
 		stop_preview()
+		var cd := get_node_or_null("CameraDisclosure")
+		if cd != null:
+			cd.queue_free()
 
 func is_live() -> bool:
 	return _current_name == "live"

@@ -9,9 +9,10 @@ Du brauchst **12 Personen** mit Google-Konto + Android-Handy (Android 7+).
 
 ## Text zum Weiterleiten (WhatsApp / E-Mail)
 
-> Hey! Ich habe eine kleine Android-App gebaut — **Macro Lens**: Barcode scannen und du bekommst
-> vier Grafiken statt Nährwerttabelle, bis zu vier Produkte im direkten Vergleich. Keine Werbung,
-> keine Konten, kein Tracking.
+> Hey! Ich habe eine kleine Android-App gebaut — **Macro Lens**: Barcode scannen und du siehst
+> Grafiken statt Nährwerttabelle, bis zu vier Produkte im direkten Vergleich. Du kannst dir die
+> Hauptseite selbst zusammenstellen und deine Allergien/Unverträglichkeiten eintragen – dann wird
+> ein Produkt rot bzw. orange markiert, wenn etwas drin ist. Keine Werbung, keine Konten, kein Tracking.
 >
 > Google verlangt von neuen Entwicklern, dass 12 Leute die App 14 Tage testen, bevor sie in den
 > Play Store darf. Magst du mitmachen?
@@ -19,7 +20,8 @@ Du brauchst **12 Personen** mit Google-Konto + Android-Handy (Android 7+).
 > 1. Link öffnen und **beitreten**: `<<<CLOSED-TESTING-LINK>>>`
 > 2. „Jetzt testen" → App installieren
 > 3. **Bitte 14 Tage installiert lassen** (nicht deinstallieren — sonst zählt es nicht)
-> 4. Wenn du magst, sag mir kurz, was nervt oder fehlt
+> 4. Wenn du magst, sag mir kurz, was nervt oder fehlt – besonders, wenn eine Allergen-Warnung
+>    falsch oder ausgeblieben ist (Produktname reicht)
 >
 > Danke dir! 🙏
 
